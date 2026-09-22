@@ -47,6 +47,7 @@ var log_lines: Array[String] = []
 func resolve(player_slots: Array[GraveSlot], enemy_slots: Array[GraveSlot]) -> Result:
 	player_units = _build_units(player_slots, GraveSlot.Team.PLAYER)
 	enemy_units = _build_units(enemy_slots, GraveSlot.Team.ENEMY)
+	_log_unmatched_lanes()
 
 	var elapsed := 0.0
 	while elapsed < MAX_TIME and _team_alive(player_units) and _team_alive(enemy_units):
@@ -110,6 +111,28 @@ func _lane_opponent(unit: CombatUnit) -> CombatUnit:
 	return null
 
 
+func _team_tag(team: GraveSlot.Team) -> String:
+	return "P" if team == GraveSlot.Team.PLAYER else "E"
+
+
+func _name(unit: CombatUnit) -> String:
+	return "[%s] %s" % [_team_tag(unit.team), unit.creature_data.creature_name]
+
+
+## A unit whose lane has no opponent at all (unequal team sizes) will sit
+## idle for the whole fight and can make the loser side look "unkillable"
+## in the log — call this out once, up front, instead of leaving it silent.
+func _log_unmatched_lanes() -> void:
+	for unit in player_units + enemy_units:
+		if _lane_opponent(unit) == null:
+			_log("%s (lane %d) has no opponent this fight and will stay idle." % [_name(unit), unit.lane_index])
+
+
+func _refresh_display(unit: CombatUnit) -> void:
+	if unit.slot and unit.slot.occupant:
+		unit.slot.occupant.update_display(unit.current_hp, unit.max_hp)
+
+
 func _perform_attack(attacker: CombatUnit) -> void:
 	var target := _lane_opponent(attacker)
 	if target == null or not target.alive:
@@ -122,9 +145,10 @@ func _perform_attack(attacker: CombatUnit) -> void:
 	var damage := attacker.current_attack
 	target.current_hp = max(target.current_hp - damage, 0)
 	_log("%s attacks %s for %d damage. %s HP: %d/%d" % [
-		attacker.creature_data.creature_name, target.creature_data.creature_name, damage,
-		target.creature_data.creature_name, target.current_hp, target.max_hp,
+		_name(attacker), _name(target), damage,
+		_name(target), target.current_hp, target.max_hp,
 	])
+	_refresh_display(target)
 
 	_fire_trigger(target, "ON_HIT", {"attacker": attacker})
 
@@ -137,9 +161,9 @@ func _kill(target: CombatUnit, killer: CombatUnit) -> void:
 		return
 
 	target.alive = false
+	_log("%s has died!" % _name(target))
 	if target.slot:
 		target.slot.clear()
-	_log("%s has died!" % target.creature_data.creature_name)
 
 	if killer:
 		_fire_trigger(killer, "ON_KILL", {"target": target})
@@ -197,9 +221,10 @@ func _apply_ability_effect(source: CombatUnit, ability: Ability, targets: Array[
 					continue
 				target.current_hp = max(target.current_hp - ability.magnitude, 0)
 				_log("%s's ability deals %d damage to %s. %s HP: %d/%d" % [
-					source.creature_data.creature_name, ability.magnitude, target.creature_data.creature_name,
-					target.creature_data.creature_name, target.current_hp, target.max_hp,
+					_name(source), ability.magnitude, _name(target),
+					_name(target), target.current_hp, target.max_hp,
 				])
+				_refresh_display(target)
 				if target.current_hp <= 0:
 					_kill(target, source)
 
@@ -209,7 +234,7 @@ func _apply_ability_effect(source: CombatUnit, ability: Ability, targets: Array[
 					continue
 				target.current_attack += ability.magnitude
 				_log("%s's ability triggers: %s attack buffed to %d" % [
-					source.creature_data.creature_name, target.creature_data.creature_name, target.current_attack,
+					_name(source), _name(target), target.current_attack,
 				])
 
 		"HEAL", "BUFF_HP", "SUMMON":

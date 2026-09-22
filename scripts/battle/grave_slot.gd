@@ -21,5 +21,5 @@ func place_unit(unit: Unit) -> void:
 
 func clear() -> void:
 	if occupant:
-		occupant.queue_free()
+		occupant.die()
 	occupant = null

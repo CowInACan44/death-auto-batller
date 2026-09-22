@@ -1,18 +1,15 @@
 extends Control
 
-# Bare-minimum stub — no visual design yet. Triggered when RoundManager
-# hits GAME_WON (Night 7 boss defeated). Press Enter/Space to play again.
+@onready var info_label: Label = $CenterContainer/VBoxContainer/InfoLabel
+@onready var retry_button: Button = $CenterContainer/VBoxContainer/RetryButton
 
 
 func _ready() -> void:
-	print("=== YOU WIN === %s defeated! Press Enter/Space to play again." % RoundManager.BOSS_NAME)
+	info_label.text = "YOU WIN!\n%s defeated!" % RoundManager.BOSS_NAME
+	print("=== YOU WIN === %s defeated!" % RoundManager.BOSS_NAME)
+	retry_button.pressed.connect(_on_retry_pressed)
 
 
-func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("ui_accept"):
-		_retry()
-
-
-func _retry() -> void:
+func _on_retry_pressed() -> void:
 	RoundManager.reset_run()
 	get_tree().change_scene_to_file("res://scenes/battle/battle.tscn")

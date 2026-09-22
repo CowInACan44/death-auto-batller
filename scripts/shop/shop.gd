@@ -18,6 +18,14 @@ class ShopSlot:
 
 var slots: Array[ShopSlot] = []
 
+@onready var bones_label: Label = $Layout/BonesLabel
+@onready var slots_container: VBoxContainer = $Layout/SlotsContainer
+@onready var reroll_button: Button = $Layout/RerollButton
+
+## One HBoxContainer row (info label + Buy/Lock buttons) per shop slot,
+## built once in _ready() and refreshed (not rebuilt) on every change.
+var _row_nodes: Array[HBoxContainer] = []
+
 
 func _ready() -> void:
 	for i in SHOP_SIZE:
@@ -25,18 +33,82 @@ func _ready() -> void:
 
 	# Temporary: seed a fake player team so the "favor owned lines"
 	# weighting is visible when running this scene standalone, ahead
-	# of Battle <-> Shop scene transitions existing.
+	# of a real persisted roster/bench existing.
 	if RoundManager.player_team.is_empty():
 		var bone_pup := CreaturePool.get_by_line_and_stage("bone_beasts", 1)
 		RoundManager.player_team = [OwnedCreature.new(bone_pup), OwnedCreature.new(bone_pup)]
 		print("(Shop test) seeded player_team with 2x %s to demonstrate weighting" % bone_pup.creature_name)
 
+	_build_rows()
+	reroll_button.pressed.connect(_on_reroll_pressed)
 	reroll()
+	_refresh_ui()
 
-	# Temporary test of lock/reroll/buy — remove once shop UI exists.
-	toggle_lock(0)
+
+func _build_rows() -> void:
+	for i in SHOP_SIZE:
+		var row := HBoxContainer.new()
+
+		var info_label := Label.new()
+		info_label.custom_minimum_size = Vector2(420, 0)
+		row.add_child(info_label)
+
+		var buy_button := Button.new()
+		buy_button.text = "Buy"
+		buy_button.pressed.connect(_on_buy_pressed.bind(i))
+		row.add_child(buy_button)
+
+		var lock_button := Button.new()
+		lock_button.text = "Lock"
+		lock_button.pressed.connect(_on_lock_pressed.bind(i))
+		row.add_child(lock_button)
+
+		slots_container.add_child(row)
+		_row_nodes.append(row)
+
+
+func _on_reroll_pressed() -> void:
 	reroll()
-	buy_creature(1)
+	_refresh_ui()
+
+
+func _on_buy_pressed(slot_index: int) -> void:
+	var bought := buy_creature(slot_index)
+	if bought:
+		RoundManager.add_to_roster(bought)
+	_refresh_ui()
+
+
+func _on_lock_pressed(slot_index: int) -> void:
+	toggle_lock(slot_index)
+	_refresh_ui()
+
+
+func _refresh_ui() -> void:
+	bones_label.text = "Bones: %d" % Economy.bones
+	for i in slots.size():
+		var slot := slots[i]
+		var row := _row_nodes[i]
+		var info_label: Label = row.get_child(0)
+		var buy_button: Button = row.get_child(1)
+		var lock_button: Button = row.get_child(2)
+
+		if slot.creature == null:
+			info_label.text = "(empty)"
+			buy_button.disabled = true
+			lock_button.disabled = true
+			lock_button.text = "Lock"
+			continue
+
+		var shiny_tag := "✨ " if slot.is_shiny else ""
+		var hp := OwnedCreature.calc_effective_max_hp(slot.creature, slot.is_shiny)
+		var attack := OwnedCreature.calc_effective_attack(slot.creature, slot.is_shiny)
+		info_label.text = "%s%s (%s) — HP %d, ATK %d — %d bones" % [
+			shiny_tag, slot.creature.creature_name, slot.creature.evolution_line, hp, attack, slot.creature.shop_cost,
+		]
+		buy_button.disabled = false
+		lock_button.disabled = false
+		lock_button.text = "Unlock" if slot.locked else "Lock"
 
 
 ## Refills all non-locked (and any now-empty) slots from CreaturePool,

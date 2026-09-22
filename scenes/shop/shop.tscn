@@ -3,6 +3,21 @@
 [ext_resource type="Script" path="res://scripts/shop/shop.gd" id="1_shop"]
 
 [node name="Shop" type="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
 script = ExtResource("1_shop")
 
-[node name="ShopSlotsContainer" type="HBoxContainer" parent="."]
+[node name="Layout" type="VBoxContainer" parent="."]
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 620.0
+offset_bottom = 320.0
+
+[node name="BonesLabel" type="Label" parent="Layout"]
+theme_override_font_sizes/font_size = 20
+text = "Bones: 10"
+
+[node name="SlotsContainer" type="VBoxContainer" parent="Layout"]
+
+[node name="RerollButton" type="Button" parent="Layout"]
+text = "Reroll"

@@ -57,3 +57,13 @@ position = Vector2(986, 252)
 script = ExtResource("2_slot")
 team = 1
 slot_index = 3
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="HUDLabel" type="Label" parent="HUD"]
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 600.0
+offset_bottom = 50.0
+theme_override_font_sizes/font_size = 20
+text = "HUD"
