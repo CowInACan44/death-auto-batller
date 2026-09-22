@@ -1,16 +1,15 @@
 [gd_resource type="Resource" script_class="CreatureData" load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/resources/creature_data.gd" id="1_script"]
-[ext_resource type="Resource" path="res://resources/creatures/skull_wings/stage_2.tres" id="2_next_stage"]
+[ext_resource type="Resource" path="res://resources/creatures/skull_humanoids/stage_3.tres" id="2_next_stage"]
 
 [resource]
 script = ExtResource("1_script")
-creature_name = "Skull Bat"
-evolution_line = "skull_wings"
-stage = 1
-max_hp = 100
-attack = 10
+creature_name = "Skull Warrior"
+evolution_line = "skull_humanoids"
+stage = 2
+max_hp = 220
+attack = 22
 attack_speed = 1.0
-shop_cost = 3
-bone_value = 1
+bone_value = 3
 next_stage = ExtResource("2_next_stage")

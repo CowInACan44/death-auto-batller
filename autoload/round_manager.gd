@@ -24,7 +24,7 @@ func start_battle_phase() -> void:
 		push_warning("RoundManager: no battle scene registered, can't start battle phase")
 		return
 
-	var enemy_team := EncounterGenerator.generate_encounter(player_team, CreaturePool.all_creatures)
+	var enemy_team := EncounterGenerator.generate_encounter(player_team, CreaturePool.purchasable_creatures)
 
 	for i in enemy_team.size():
 		var slot: GraveSlot = _battle.enemy_grave_slots[i]
@@ -62,7 +62,7 @@ func end_battle_phase(player_won: bool) -> void:
 	var deaths := randi_range(1, 4)
 	var bones_earned := 0
 	for i in deaths:
-		var fallen: CreatureData = CreaturePool.all_creatures.pick_random()
+		var fallen: CreatureData = CreaturePool.purchasable_creatures.pick_random()
 		bones_earned += fallen.bone_value
 	print("%d creatures died this round" % deaths)
 	Economy.award_bones(bones_earned)

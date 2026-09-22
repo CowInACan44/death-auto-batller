@@ -3,9 +3,10 @@ class_name CreatureData
 
 ## Identity
 @export var creature_name: String = ""
-@export_enum("bone_beasts", "slime_skulls", "skull_wings", "bone_bugs", "skull_humanoids")
+## "none" marks a standalone bonus creature with no evolution line.
+@export_enum("bone_beasts", "slime_skulls", "skull_wings", "bone_bugs", "skull_humanoids", "none")
 var evolution_line: String = "bone_beasts"
-@export_range(1, 4, 1) var stage: int = 1
+@export_range(1, 3, 1) var stage: int = 1
 
 ## Combat stats
 @export var max_hp: int = 0
@@ -19,7 +20,7 @@ var evolution_line: String = "bone_beasts"
 ## Visuals
 @export var sprite: Texture2D
 
-## Evolution — the CreatureData this becomes when merged, null at stage 4
+## Evolution — the CreatureData this becomes when merged, null at stage 3
 @export var next_stage: CreatureData
 
 ## Combat-event abilities (Super Auto Pets-style). Empty by default —

@@ -46,7 +46,7 @@ func reroll() -> bool:
 
 	for slot in slots:
 		if slot.creature == null or not slot.locked:
-			slot.creature = _pick_weighted(CreaturePool.all_creatures, owned_lines)
+			slot.creature = _pick_weighted(CreaturePool.purchasable_creatures, owned_lines)
 
 	print("Shop rerolled")
 	_print_slots()
