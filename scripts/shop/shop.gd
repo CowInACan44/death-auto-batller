@@ -1,7 +1,8 @@
 extends Control
 
-# Shop scene: Gravedigger shop UI for buying/selling creatures.
-# Buying a creature (RoundManager.add_to_roster) triggers merge/evolve
+# Shop scene: Gravedigger shop UI for buying creatures, managing the
+# active lineup (max RoundManager.MAX_ACTIVE), and heading into the next
+# Night. Buying (RoundManager.add_to_roster) triggers merge/evolve
 # automatically — see RoundManager.check_for_merge().
 
 const SHOP_SIZE := 5
@@ -19,8 +20,11 @@ class ShopSlot:
 var slots: Array[ShopSlot] = []
 
 @onready var bones_label: Label = $Layout/BonesLabel
+@onready var lineup_label: Label = $Layout/LineupLabel
+@onready var lineup_container: VBoxContainer = $Layout/LineupContainer
 @onready var slots_container: VBoxContainer = $Layout/SlotsContainer
 @onready var reroll_button: Button = $Layout/RerollButton
+@onready var fight_button: Button = $Layout/FightButton
 
 ## One HBoxContainer row (info label + Buy/Lock buttons) per shop slot,
 ## built once in _ready() and refreshed (not rebuilt) on every change.
@@ -31,16 +35,17 @@ func _ready() -> void:
 	for i in SHOP_SIZE:
 		slots.append(ShopSlot.new())
 
-	# Temporary: seed a fake player team so the "favor owned lines"
-	# weighting is visible when running this scene standalone, ahead
-	# of a real persisted roster/bench existing.
-	if RoundManager.player_team.is_empty():
+	# Standalone testing fallback (e.g. running this scene directly via
+	# F6 without going through StarterPick first) — the real flow always
+	# arrives here with a non-empty roster already.
+	if RoundManager.roster.is_empty():
 		var bone_pup := CreaturePool.get_by_line_and_stage("bone_beasts", 1)
-		RoundManager.player_team = [OwnedCreature.new(bone_pup), OwnedCreature.new(bone_pup)]
-		print("(Shop test) seeded player_team with 2x %s to demonstrate weighting" % bone_pup.creature_name)
+		RoundManager.add_to_roster(OwnedCreature.new(bone_pup))
+		print("(Shop test) seeded roster with 1x %s since it was empty" % bone_pup.creature_name)
 
 	_build_rows()
 	reroll_button.pressed.connect(_on_reroll_pressed)
+	fight_button.pressed.connect(_on_fight_pressed)
 	reroll()
 	_refresh_ui()
 
@@ -72,6 +77,10 @@ func _on_reroll_pressed() -> void:
 	_refresh_ui()
 
 
+func _on_fight_pressed() -> void:
+	get_tree().change_scene_to_file("res://scenes/battle/battle.tscn")
+
+
 func _on_buy_pressed(slot_index: int) -> void:
 	var bought := buy_creature(slot_index)
 	if bought:
@@ -84,31 +93,12 @@ func _on_lock_pressed(slot_index: int) -> void:
 	_refresh_ui()
 
 
-func _refresh_ui() -> void:
-	bones_label.text = "Bones: %d" % Economy.bones
-	for i in slots.size():
-		var slot := slots[i]
-		var row := _row_nodes[i]
-		var info_label: Label = row.get_child(0)
-		var buy_button: Button = row.get_child(1)
-		var lock_button: Button = row.get_child(2)
-
-		if slot.creature == null:
-			info_label.text = "(empty)"
-			buy_button.disabled = true
-			lock_button.disabled = true
-			lock_button.text = "Lock"
-			continue
-
-		var shiny_tag := "✨ " if slot.is_shiny else ""
-		var hp := OwnedCreature.calc_effective_max_hp(slot.creature, slot.is_shiny)
-		var attack := OwnedCreature.calc_effective_attack(slot.creature, slot.is_shiny)
-		info_label.text = "%s%s (%s) — HP %d, ATK %d — %d bones" % [
-			shiny_tag, slot.creature.creature_name, slot.creature.evolution_line, hp, attack, slot.creature.shop_cost,
-		]
-		buy_button.disabled = false
-		lock_button.disabled = false
-		lock_button.text = "Unlock" if slot.locked else "Lock"
+func _on_toggle_active_pressed(owned: OwnedCreature) -> void:
+	var currently_active: bool = owned in RoundManager.active_lineup
+	var ok := RoundManager.set_active(owned, not currently_active)
+	if not ok:
+		print("Lineup full (%d) — bench someone first" % RoundManager.MAX_ACTIVE)
+	_refresh_ui()
 
 
 ## Refills all non-locked (and any now-empty) slots from CreaturePool,
@@ -120,8 +110,8 @@ func reroll() -> bool:
 		print("Reroll failed — not enough bones")
 		return false
 
-	var owned_lines := _count_owned_lines(RoundManager.player_team)
-	var owned_names := _count_owned_names(RoundManager.player_team)
+	var owned_lines := _count_owned_lines(RoundManager.roster)
+	var owned_names := _count_owned_names(RoundManager.roster)
 
 	for slot in slots:
 		if slot.creature == null or not slot.locked:
@@ -221,8 +211,8 @@ func _pick_weighted(pool: Array[CreatureData], owned_lines: Dictionary, owned_na
 
 
 func _print_slots() -> void:
-	var owned_lines := _count_owned_lines(RoundManager.player_team)
-	var owned_names := _count_owned_names(RoundManager.player_team)
+	var owned_lines := _count_owned_lines(RoundManager.roster)
+	var owned_names := _count_owned_names(RoundManager.roster)
 	print("Shop offers:")
 	for i in slots.size():
 		var slot := slots[i]
@@ -244,3 +234,60 @@ func _print_slots() -> void:
 			weight,
 			" [LOCKED]" if slot.locked else "",
 		])
+
+
+func _refresh_ui() -> void:
+	bones_label.text = "Bones: %d" % Economy.bones
+	_refresh_lineup_rows()
+
+	for i in slots.size():
+		var slot := slots[i]
+		var row := _row_nodes[i]
+		var info_label: Label = row.get_child(0)
+		var buy_button: Button = row.get_child(1)
+		var lock_button: Button = row.get_child(2)
+
+		if slot.creature == null:
+			info_label.text = "(empty)"
+			buy_button.disabled = true
+			lock_button.disabled = true
+			lock_button.text = "Lock"
+			continue
+
+		var shiny_tag := "✨ " if slot.is_shiny else ""
+		var hp := OwnedCreature.calc_effective_max_hp(slot.creature, slot.is_shiny)
+		var attack := OwnedCreature.calc_effective_attack(slot.creature, slot.is_shiny)
+		info_label.text = "%s%s (%s) — HP %d, ATK %d — %d bones" % [
+			shiny_tag, slot.creature.creature_name, slot.creature.evolution_line, hp, attack, slot.creature.shop_cost,
+		]
+		buy_button.disabled = false
+		lock_button.disabled = false
+		lock_button.text = "Unlock" if slot.locked else "Lock"
+
+
+## Roster size changes as you buy/merge, so this section is rebuilt from
+## scratch each refresh rather than reused like the fixed-size shop rows.
+func _refresh_lineup_rows() -> void:
+	for child in lineup_container.get_children():
+		child.queue_free()
+
+	lineup_label.text = "Roster (%d/%d active):" % [RoundManager.active_lineup.size(), RoundManager.MAX_ACTIVE]
+
+	for owned in RoundManager.roster:
+		var row := HBoxContainer.new()
+		var is_active: bool = owned in RoundManager.active_lineup
+
+		var info_label := Label.new()
+		info_label.custom_minimum_size = Vector2(320, 0)
+		var shiny_tag := "✨ " if owned.is_shiny else ""
+		info_label.text = "%s%s (stage %d) %s" % [
+			shiny_tag, owned.data.creature_name, owned.data.stage, "[ACTIVE]" if is_active else "[BENCH]",
+		]
+		row.add_child(info_label)
+
+		var toggle_button := Button.new()
+		toggle_button.text = "Bench" if is_active else "Activate"
+		toggle_button.pressed.connect(_on_toggle_active_pressed.bind(owned))
+		row.add_child(toggle_button)
+
+		lineup_container.add_child(row)

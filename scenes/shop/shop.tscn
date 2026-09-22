@@ -10,14 +10,27 @@ script = ExtResource("1_shop")
 [node name="Layout" type="VBoxContainer" parent="."]
 offset_left = 20.0
 offset_top = 20.0
-offset_right = 620.0
-offset_bottom = 320.0
+offset_right = 640.0
+offset_bottom = 700.0
 
 [node name="BonesLabel" type="Label" parent="Layout"]
 theme_override_font_sizes/font_size = 20
 text = "Bones: 10"
 
+[node name="LineupLabel" type="Label" parent="Layout"]
+theme_override_font_sizes/font_size = 18
+text = "Roster (0/4 active):"
+
+[node name="LineupContainer" type="VBoxContainer" parent="Layout"]
+
+[node name="ShopLabel" type="Label" parent="Layout"]
+theme_override_font_sizes/font_size = 18
+text = "Shop offers:"
+
 [node name="SlotsContainer" type="VBoxContainer" parent="Layout"]
 
 [node name="RerollButton" type="Button" parent="Layout"]
 text = "Reroll"
+
+[node name="FightButton" type="Button" parent="Layout"]
+text = "Fight! (go to Night)"

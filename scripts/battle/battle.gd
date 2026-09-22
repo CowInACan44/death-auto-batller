@@ -1,26 +1,23 @@
 extends Node2D
 
-# Battle scene: grave slots for player and enemy units. Combat itself is
-# resolved by CombatResolver via RoundManager.resolve_combat(). Each load
-# of this scene plays exactly one Night; _advance_after_battle() decides
-# whether to reload for the next Night or hand off to GameOver/GameWon.
-
-const UNIT_SCENE := preload("res://scenes/unit/unit.tscn")
+# Battle scene: grave slots for player and enemy units. RoundManager seats
+# both sides (active lineup + generated encounter) and CombatResolver runs
+# the fight. Each load plays exactly one Night, then routes to the next
+# Day (Shop), GameOver, or GameWon based on what end_battle_phase() decided.
 
 @onready var player_grave_slots: Array[GraveSlot] = _collect_slots($PlayerGraveSlots)
 @onready var enemy_grave_slots: Array[GraveSlot] = _collect_slots($EnemyGraveSlots)
 @onready var hud_label: Label = $HUD/HUDLabel
 
-## Guards against _run_round_loop_test() somehow firing twice on the same
-## scene instance (e.g. a re-entrant _ready()) stacking two battles' worth
-## of round/heart/bone state changes on top of each other silently.
+## Guards against _run_night() somehow firing twice on the same scene
+## instance, stacking two nights' worth of round/heart/bone changes.
 var _battle_resolved := false
 
 
 func _ready() -> void:
 	RoundManager.register_battle(self)
 	_update_hud()
-	_run_round_loop_test()
+	_run_night()
 
 
 func _collect_slots(container: Node) -> Array[GraveSlot]:
@@ -44,32 +41,12 @@ func _update_hud() -> void:
 	hud_label.text = "Night %d   Bones: %d   %s" % [RoundManager.round_number, Economy.bones, hearts_display]
 
 
-## Temporary stand-in for a real Shop day — there's no Shop <-> Battle
-## scene transition yet, so each Night re-seats the same fixed 2-unit
-## test team (one forced shiny, to prove the stat boost carries into
-## combat) rather than a persisted, shop-grown roster. Runs a real
-## battle and feeds the result into end_battle_phase(), then hands off
-## to _advance_after_battle() to route to the next Night, GameOver, or
-## GameWon.
-func _run_round_loop_test() -> void:
+func _run_night() -> void:
 	if _battle_resolved:
-		push_warning("Battle: _run_round_loop_test() called again on an already-resolved instance, ignoring")
+		push_warning("Battle: _run_night() called again on an already-resolved instance, ignoring")
 		return
 	_battle_resolved = true
 
-	var test_team: Array[OwnedCreature] = [
-		OwnedCreature.new(CreaturePool.get_by_line_and_stage("bone_beasts", 1), true), # forced shiny
-		OwnedCreature.new(CreaturePool.get_by_line_and_stage("slime_skulls", 1)),
-	]
-
-	for i in test_team.size():
-		var unit: Unit = UNIT_SCENE.instantiate()
-		unit.creature_data = test_team[i].data
-		unit.is_shiny = test_team[i].is_shiny
-		add_child(unit)
-		player_grave_slots[i].place_unit(unit)
-
-	RoundManager.player_team = test_team
 	RoundManager.start_battle_phase()
 
 	var result := RoundManager.resolve_combat()
@@ -81,8 +58,8 @@ func _run_round_loop_test() -> void:
 
 
 ## Routes to the scene end_battle_phase() decided on. GAME_OVER/GAME_WON
-## hand off to their stub screens; anything else (still SHOP) reloads
-## this scene as a stand-in for visiting a real Shop day.
+## hand off to their stub screens; anything else (still SHOP) heads to
+## the Shop for the next Day.
 func _advance_after_battle() -> void:
 	match RoundManager.state:
 		RoundManager.GameState.GAME_OVER:
@@ -90,4 +67,4 @@ func _advance_after_battle() -> void:
 		RoundManager.GameState.GAME_WON:
 			get_tree().change_scene_to_file("res://scenes/game_won/game_won.tscn")
 		_:
-			get_tree().reload_current_scene()
+			get_tree().change_scene_to_file("res://scenes/shop/shop.tscn")

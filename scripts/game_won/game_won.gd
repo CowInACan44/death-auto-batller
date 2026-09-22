@@ -12,4 +12,4 @@ func _ready() -> void:
 
 func _on_retry_pressed() -> void:
 	RoundManager.reset_run()
-	get_tree().change_scene_to_file("res://scenes/battle/battle.tscn")
+	get_tree().change_scene_to_file("res://scenes/starter_pick/starter_pick.tscn")

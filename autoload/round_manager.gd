@@ -1,18 +1,22 @@
 extends Node
 
-## Drives the shop/battle/result cycle: seats teams into grave slots,
-## hands them to CombatResolver, and feeds the outcome back into the
-## round result. The shop itself isn't wired in yet.
+## Drives the shop/battle/result cycle: seats the active lineup into grave
+## slots, hands them to CombatResolver, and feeds the outcome back into
+## the round result.
 ##
 ## Shop phase = "Day N", battle phase = "Night N". A 7-night run: Night 7
 ## is a boosted boss encounter, and beating it is the win condition. 3
 ## hearts total across the whole run — losing a night costs one; hitting
 ## 0 is GAME_OVER.
+##
+## roster = everything the player owns (bench + active). active_lineup =
+## the subset (max MAX_ACTIVE) actually seated into grave slots each Night.
 
 enum GameState { SHOP, BATTLE, RESULT, GAME_OVER, GAME_WON }
 
 const UNIT_SCENE := preload("res://scenes/unit/unit.tscn")
 const MERGE_COUNT := 3
+const MAX_ACTIVE := 4
 
 const MAX_HEARTS := 3
 const FINAL_NIGHT := 7
@@ -21,7 +25,8 @@ const BOSS_POWER_MULTIPLIER := 1.75
 
 var round_number: int = 1
 var state: GameState = GameState.SHOP
-var player_team: Array[OwnedCreature] = []
+var roster: Array[OwnedCreature] = []
+var active_lineup: Array[OwnedCreature] = []
 var hearts: int = MAX_HEARTS
 
 var _battle: Node = null
@@ -33,21 +38,42 @@ func register_battle(battle: Node) -> void:
 
 ## The single entry point for adding a bought/acquired creature to the
 ## player's roster — always route additions through here (not a direct
-## player_team.append()) so the merge check actually runs.
+## roster.append()) so auto-activation and the merge check both run.
+## Auto-activates into the lineup if there's room, so a fresh purchase
+## (or the starter pick) doesn't require a manual extra step to fight.
 func add_to_roster(creature: OwnedCreature) -> void:
-	player_team.append(creature)
+	roster.append(creature)
+	if active_lineup.size() < MAX_ACTIVE:
+		active_lineup.append(creature)
 	check_for_merge(creature)
+
+
+## Moves a roster member into/out of the active lineup. Returns false
+## (no-op) if trying to activate while already at MAX_ACTIVE.
+func set_active(creature: OwnedCreature, active: bool) -> bool:
+	if active:
+		if creature in active_lineup:
+			return true
+		if active_lineup.size() >= MAX_ACTIVE:
+			return false
+		active_lineup.append(creature)
+		return true
+
+	active_lineup.erase(creature)
+	return true
 
 
 ## Checks whether the roster now holds MERGE_COUNT copies of the exact
 ## same creature (same CreatureData reference — line/name/stage all
 ## match by construction — AND same is_shiny status; a shiny and a
 ## non-shiny copy never merge together). If so, consumes 3 of them and
-## adds 1 instance of next_stage, carrying is_shiny forward. No-ops if
-## next_stage is null (stage 3, or a bonus creature with no evolution).
+## adds 1 instance of next_stage, carrying is_shiny forward. If any
+## consumed copy was active, the evolved result takes its place in the
+## lineup. No-ops if next_stage is null (stage 3, or a bonus creature
+## with no evolution).
 func check_for_merge(creature_instance: OwnedCreature) -> void:
 	var matches: Array[OwnedCreature] = []
-	for owned in player_team:
+	for owned in roster:
 		if owned.data == creature_instance.data and owned.is_shiny == creature_instance.is_shiny:
 			matches.append(owned)
 
@@ -58,11 +84,18 @@ func check_for_merge(creature_instance: OwnedCreature) -> void:
 	if next_stage == null:
 		return
 
+	var was_active := false
 	for i in MERGE_COUNT:
-		player_team.erase(matches[i])
+		var consumed := matches[i]
+		if consumed in active_lineup:
+			was_active = true
+			active_lineup.erase(consumed)
+		roster.erase(consumed)
 
 	var evolved := OwnedCreature.new(next_stage, creature_instance.is_shiny)
-	player_team.append(evolved)
+	roster.append(evolved)
+	if was_active:
+		active_lineup.append(evolved)
 
 	print("%dx %s merged into %s!%s" % [
 		MERGE_COUNT,
@@ -81,10 +114,18 @@ func start_battle_phase() -> void:
 		push_warning("RoundManager: no battle scene registered, can't start battle phase")
 		return
 
+	for i in active_lineup.size():
+		var slot: GraveSlot = _battle.player_grave_slots[i]
+		var unit: Unit = UNIT_SCENE.instantiate()
+		unit.creature_data = active_lineup[i].data
+		unit.is_shiny = active_lineup[i].is_shiny
+		_battle.add_child(unit)
+		slot.place_unit(unit)
+
 	var is_boss_night := round_number == FINAL_NIGHT
 	var power_multiplier := BOSS_POWER_MULTIPLIER if is_boss_night else 1.0
 	var enemy_team := EncounterGenerator.generate_encounter(
-		player_team, CreaturePool.purchasable_creatures, 4, power_multiplier
+		active_lineup, CreaturePool.purchasable_creatures, MAX_ACTIVE, power_multiplier
 	)
 
 	for i in enemy_team.size():
@@ -99,7 +140,7 @@ func start_battle_phase() -> void:
 
 	print("Night %d — Player: %s vs Enemy: %s" % [
 		round_number,
-		_format_owned_team(player_team),
+		_format_owned_team(active_lineup),
 		_format_data_team(enemy_team),
 	])
 
@@ -157,7 +198,8 @@ func end_battle_phase(player_won: bool) -> void:
 func reset_run() -> void:
 	round_number = 1
 	state = GameState.SHOP
-	player_team = []
+	roster = []
+	active_lineup = []
 	hearts = MAX_HEARTS
 	Economy.reset()
 	print("=== New run started — Day 1, %d hearts ===" % hearts)
