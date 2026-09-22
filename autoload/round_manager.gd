@@ -46,9 +46,19 @@ func end_battle_phase(player_won: bool) -> void:
 	state = GameState.RESULT
 	print("Round %d result — %s" % [round_number, "Player won" if player_won else "Player lost"])
 
+	# No real per-unit death tracking yet — simulate a handful of deaths
+	# and award bones off their bone_value as a placeholder.
+	var deaths := randi_range(1, 4)
+	var bones_earned := 0
+	for i in deaths:
+		var fallen: CreatureData = CreaturePool.all_creatures.pick_random()
+		bones_earned += fallen.bone_value
+	print("%d creatures died this round" % deaths)
+	Economy.award_bones(bones_earned)
+
 	round_number += 1
 	state = GameState.SHOP
-	print("Starting round %d (shop phase)" % round_number)
+	print("Starting round %d (shop phase) — Bones: %d" % [round_number, Economy.bones])
 
 
 func _format_team(team: Array[CreatureData]) -> String:

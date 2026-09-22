@@ -50,3 +50,16 @@ func _run_round_loop_test() -> void:
 	RoundManager.player_team = test_team
 	RoundManager.start_battle_phase()
 	RoundManager.end_battle_phase(true)
+
+	_run_economy_test()
+
+
+## Temporary manual test of spend_bones() — remove once the shop exists.
+## Spends a small, affordable amount, then tries to overspend and
+## confirms it's rejected without changing the total.
+func _run_economy_test() -> void:
+	var affordable := Economy.spend_bones(2)
+	print("Spend 2 bones (should succeed): %s" % affordable)
+
+	var too_much := Economy.spend_bones(9999)
+	print("Spend 9999 bones (should fail): %s" % too_much)
