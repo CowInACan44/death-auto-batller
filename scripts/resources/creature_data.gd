@@ -21,3 +21,7 @@ var evolution_line: String = "bone_beasts"
 
 ## Evolution — the CreatureData this becomes when merged, null at stage 4
 @export var next_stage: CreatureData
+
+## Combat-event abilities (Super Auto Pets-style). Empty by default —
+## trigger resolution doesn't exist yet, this is data shape only.
+@export var abilities: Array[Ability] = []
