@@ -13,6 +13,7 @@ var evolution_line: String = "bone_beasts"
 @export var attack_speed: float = 1.0
 
 ## Economy
+@export var shop_cost: int = 0
 @export var bone_value: int = 0
 
 ## Visuals

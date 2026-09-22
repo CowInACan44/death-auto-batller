@@ -10,4 +10,5 @@ stage = 1
 max_hp = 100
 attack = 10
 attack_speed = 1.0
+shop_cost = 3
 bone_value = 1
