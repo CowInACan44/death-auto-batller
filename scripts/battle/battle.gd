@@ -11,6 +11,7 @@ const UNIT_SCENE := preload("res://scenes/unit/unit.tscn")
 
 func _ready() -> void:
 	RoundManager.register_battle(self)
+	_run_merge_test()
 	_run_round_loop_test()
 
 
@@ -28,6 +29,32 @@ func get_empty_slot(team: GraveSlot.Team) -> GraveSlot:
 		if slot.is_empty():
 			return slot
 	return null
+
+
+## Temporary manual test of merge/evolve — remove once a real shop ->
+## roster flow exists. Adds 3 identical (non-shiny) Bone Pups one at a
+## time via add_to_roster(), which should auto-merge into 1 Bone Hound
+## on the 3rd addition, then does the same with 3 shiny Skull Oozes to
+## confirm shiny status carries into the evolved instance. Resets
+## player_team afterward so it doesn't bleed into the tests below.
+func _run_merge_test() -> void:
+	var bone_pup := CreaturePool.get_by_line_and_stage("bone_beasts", 1)
+	for i in 3:
+		RoundManager.add_to_roster(OwnedCreature.new(bone_pup))
+
+	var skull_ooze := CreaturePool.get_by_line_and_stage("slime_skulls", 1)
+	for i in 3:
+		RoundManager.add_to_roster(OwnedCreature.new(skull_ooze, true))
+
+	print("Merge test roster (%d entries):" % RoundManager.player_team.size())
+	for owned in RoundManager.player_team:
+		print("  %s%s (stage %d)" % [
+			"✨ " if owned.is_shiny else "",
+			owned.data.creature_name,
+			owned.data.stage,
+		])
+
+	RoundManager.player_team.clear()
 
 
 ## Temporary manual test of the round loop — remove once the shop

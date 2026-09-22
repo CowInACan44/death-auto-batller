@@ -7,6 +7,7 @@ extends Node
 enum GameState { SHOP, BATTLE, RESULT }
 
 const UNIT_SCENE := preload("res://scenes/unit/unit.tscn")
+const MERGE_COUNT := 3
 
 var round_number: int = 1
 var state: GameState = GameState.SHOP
@@ -17,6 +18,51 @@ var _battle: Node = null
 
 func register_battle(battle: Node) -> void:
 	_battle = battle
+
+
+## The single entry point for adding a bought/acquired creature to the
+## player's roster — always route additions through here (not a direct
+## player_team.append()) so the merge check actually runs.
+func add_to_roster(creature: OwnedCreature) -> void:
+	player_team.append(creature)
+	check_for_merge(creature)
+
+
+## Checks whether the roster now holds MERGE_COUNT copies of the exact
+## same creature (same CreatureData reference — line/name/stage all
+## match by construction — AND same is_shiny status; a shiny and a
+## non-shiny copy never merge together). If so, consumes 3 of them and
+## adds 1 instance of next_stage, carrying is_shiny forward. No-ops if
+## next_stage is null (stage 3, or a bonus creature with no evolution).
+func check_for_merge(creature_instance: OwnedCreature) -> void:
+	var matches: Array[OwnedCreature] = []
+	for owned in player_team:
+		if owned.data == creature_instance.data and owned.is_shiny == creature_instance.is_shiny:
+			matches.append(owned)
+
+	if matches.size() < MERGE_COUNT:
+		return
+
+	var next_stage: CreatureData = creature_instance.data.next_stage
+	if next_stage == null:
+		return
+
+	for i in MERGE_COUNT:
+		player_team.erase(matches[i])
+
+	var evolved := OwnedCreature.new(next_stage, creature_instance.is_shiny)
+	player_team.append(evolved)
+
+	print("%dx %s merged into %s!%s" % [
+		MERGE_COUNT,
+		creature_instance.data.creature_name,
+		evolved.data.creature_name,
+		" ✨" if evolved.is_shiny else "",
+	])
+
+	# The evolved copy could itself complete a further merge if 2 more
+	# of that stage were already sitting on the roster.
+	check_for_merge(evolved)
 
 
 func start_battle_phase() -> void:

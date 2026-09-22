@@ -1,7 +1,8 @@
 extends Control
 
 # Shop scene: Gravedigger shop UI for buying/selling creatures.
-# Buy/reroll/lock logic below; merge/evolve-on-buy is the next piece.
+# Buying a creature (RoundManager.add_to_roster) triggers merge/evolve
+# automatically — see RoundManager.check_for_merge().
 
 const SHOP_SIZE := 5
 const REROLL_COST := 1
@@ -48,10 +49,11 @@ func reroll() -> bool:
 		return false
 
 	var owned_lines := _count_owned_lines(RoundManager.player_team)
+	var owned_names := _count_owned_names(RoundManager.player_team)
 
 	for slot in slots:
 		if slot.creature == null or not slot.locked:
-			slot.creature = _pick_weighted(CreaturePool.purchasable_creatures, owned_lines)
+			slot.creature = _pick_weighted(CreaturePool.purchasable_creatures, owned_lines, owned_names)
 			slot.is_shiny = randf() < SHINY_CHANCE
 			if slot.is_shiny:
 				print("✨ Shiny %s appeared in the shop! HP: %d, Attack: %d" % [
@@ -97,23 +99,42 @@ func buy_creature(slot_index: int) -> OwnedCreature:
 	return bought
 
 
+## Counts owned copies per evolution line, skipping "none" (bonus)
+## creatures — those are weighted individually by name instead, see
+## _count_owned_names(), so owning one bonus creature doesn't boost the
+## odds of every other unrelated bonus creature.
 func _count_owned_lines(team: Array[OwnedCreature]) -> Dictionary:
 	var counts := {}
 	for owned in team:
+		if owned.data.evolution_line == "none":
+			continue
 		counts[owned.data.evolution_line] = counts.get(owned.data.evolution_line, 0) + 1
 	return counts
 
 
-func _weight_for(creature: CreatureData, owned_lines: Dictionary) -> float:
-	var owned_count: int = owned_lines.get(creature.evolution_line, 0)
+func _count_owned_names(team: Array[OwnedCreature]) -> Dictionary:
+	var counts := {}
+	for owned in team:
+		if owned.data.evolution_line != "none":
+			continue
+		counts[owned.data.creature_name] = counts.get(owned.data.creature_name, 0) + 1
+	return counts
+
+
+func _weight_for(creature: CreatureData, owned_lines: Dictionary, owned_names: Dictionary) -> float:
+	var owned_count: int
+	if creature.evolution_line == "none":
+		owned_count = owned_names.get(creature.creature_name, 0)
+	else:
+		owned_count = owned_lines.get(creature.evolution_line, 0)
 	return 1.0 + owned_count * OWNED_LINE_WEIGHT_BONUS
 
 
-func _pick_weighted(pool: Array[CreatureData], owned_lines: Dictionary) -> CreatureData:
+func _pick_weighted(pool: Array[CreatureData], owned_lines: Dictionary, owned_names: Dictionary) -> CreatureData:
 	var weights: Array[float] = []
 	var total_weight := 0.0
 	for creature in pool:
-		var w := _weight_for(creature, owned_lines)
+		var w := _weight_for(creature, owned_lines, owned_names)
 		weights.append(w)
 		total_weight += w
 
@@ -129,13 +150,14 @@ func _pick_weighted(pool: Array[CreatureData], owned_lines: Dictionary) -> Creat
 
 func _print_slots() -> void:
 	var owned_lines := _count_owned_lines(RoundManager.player_team)
+	var owned_names := _count_owned_names(RoundManager.player_team)
 	print("Shop offers:")
 	for i in slots.size():
 		var slot := slots[i]
 		if slot.creature == null:
 			print("  [%d] (empty)%s" % [i, " [LOCKED]" if slot.locked else ""])
 			continue
-		var weight := _weight_for(slot.creature, owned_lines)
+		var weight := _weight_for(slot.creature, owned_lines, owned_names)
 		var shiny_tag := "✨ " if slot.is_shiny else ""
 		var hp := OwnedCreature.calc_effective_max_hp(slot.creature, slot.is_shiny)
 		var attack := OwnedCreature.calc_effective_attack(slot.creature, slot.is_shiny)
