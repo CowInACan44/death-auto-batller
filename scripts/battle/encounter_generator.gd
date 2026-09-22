@@ -28,17 +28,19 @@ static func team_power(team: Array[OwnedCreature]) -> float:
 
 
 ## Randomly assembles an enemy team from `pool`, picking creatures until
-## its power roughly matches `player_team`'s power (or the unit cap /
-## pool is exhausted). No two runs with the same player team are
-## guaranteed to produce the same enemy team. Enemies are plain
-## CreatureData — encounters don't roll shiny, that's a shop-only concept
-## for now.
+## its power roughly matches `player_team`'s power times `power_multiplier`
+## (or the unit cap / pool is exhausted) — a boss encounter passes a
+## multiplier > 1.0 to scale up the fight. No two runs with the same
+## player team are guaranteed to produce the same enemy team. Enemies are
+## plain CreatureData — encounters don't roll shiny, that's a shop-only
+## concept for now.
 static func generate_encounter(
 	player_team: Array[OwnedCreature],
 	pool: Array[CreatureData],
-	max_units: int = 4
+	max_units: int = 4,
+	power_multiplier: float = 1.0
 ) -> Array[CreatureData]:
-	var target_power := team_power(player_team)
+	var target_power := team_power(player_team) * power_multiplier
 	var candidates := pool.duplicate()
 	candidates.shuffle()
 

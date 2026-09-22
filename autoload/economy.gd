@@ -22,3 +22,10 @@ func spend_bones(amount: int) -> bool:
 	bones -= amount
 	print("-%d bones, total: %d" % [amount, bones])
 	return true
+
+
+## Called on a fresh run (see RoundManager.reset_run()) so a retry starts
+## with the same baseline bones as a brand new game.
+func reset() -> void:
+	bones = STARTING_BONES
+	print("Bones reset to %d" % bones)

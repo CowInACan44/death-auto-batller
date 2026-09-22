@@ -3,15 +3,26 @@ extends Node
 ## Drives the shop/battle/result cycle: seats teams into grave slots,
 ## hands them to CombatResolver, and feeds the outcome back into the
 ## round result. The shop itself isn't wired in yet.
+##
+## Shop phase = "Day N", battle phase = "Night N". A 7-night run: Night 7
+## is a boosted boss encounter, and beating it is the win condition. 3
+## hearts total across the whole run — losing a night costs one; hitting
+## 0 is GAME_OVER.
 
-enum GameState { SHOP, BATTLE, RESULT }
+enum GameState { SHOP, BATTLE, RESULT, GAME_OVER, GAME_WON }
 
 const UNIT_SCENE := preload("res://scenes/unit/unit.tscn")
 const MERGE_COUNT := 3
 
+const MAX_HEARTS := 3
+const FINAL_NIGHT := 7
+const BOSS_NAME := "The Gravekeeper's Champion"
+const BOSS_POWER_MULTIPLIER := 1.75
+
 var round_number: int = 1
 var state: GameState = GameState.SHOP
 var player_team: Array[OwnedCreature] = []
+var hearts: int = MAX_HEARTS
 
 var _battle: Node = null
 
@@ -70,7 +81,11 @@ func start_battle_phase() -> void:
 		push_warning("RoundManager: no battle scene registered, can't start battle phase")
 		return
 
-	var enemy_team := EncounterGenerator.generate_encounter(player_team, CreaturePool.purchasable_creatures)
+	var is_boss_night := round_number == FINAL_NIGHT
+	var power_multiplier := BOSS_POWER_MULTIPLIER if is_boss_night else 1.0
+	var enemy_team := EncounterGenerator.generate_encounter(
+		player_team, CreaturePool.purchasable_creatures, 4, power_multiplier
+	)
 
 	for i in enemy_team.size():
 		var slot: GraveSlot = _battle.enemy_grave_slots[i]
@@ -79,7 +94,10 @@ func start_battle_phase() -> void:
 		_battle.add_child(unit)
 		slot.place_unit(unit)
 
-	print("Round %d — Player: %s vs Enemy: %s" % [
+	if is_boss_night:
+		print("🌙 Night %d — BOSS ENCOUNTER: %s approaches!" % [round_number, BOSS_NAME])
+
+	print("Night %d — Player: %s vs Enemy: %s" % [
 		round_number,
 		_format_owned_team(player_team),
 		_format_data_team(enemy_team),
@@ -101,7 +119,7 @@ func resolve_combat() -> CombatResolver.Result:
 
 func end_battle_phase(player_won: bool) -> void:
 	state = GameState.RESULT
-	print("Round %d result — %s" % [round_number, "Player won" if player_won else "Player lost"])
+	print("Night %d result — %s" % [round_number, "Player won" if player_won else "Player lost"])
 
 	# No real per-unit death tracking yet — simulate a handful of deaths
 	# and award bones off their bone_value as a placeholder.
@@ -113,9 +131,36 @@ func end_battle_phase(player_won: bool) -> void:
 	print("%d creatures died this round" % deaths)
 	Economy.award_bones(bones_earned)
 
-	round_number += 1
+	if player_won and round_number == FINAL_NIGHT:
+		state = GameState.GAME_WON
+		print("=== YOU WIN — %s defeated on Night %d! ===" % [BOSS_NAME, round_number])
+		return
+
+	if not player_won:
+		hearts -= 1
+		print("💀 Lost a heart! Hearts remaining: %d/%d" % [hearts, MAX_HEARTS])
+		if hearts <= 0:
+			state = GameState.GAME_OVER
+			print("=== GAME OVER — ran out of hearts on Night %d ===" % round_number)
+			return
+
+	# Nights never advance past FINAL_NIGHT — losing the boss night retries
+	# the boss instead of rolling into a night that doesn't exist.
+	round_number = min(round_number + 1, FINAL_NIGHT)
 	state = GameState.SHOP
-	print("Starting round %d (shop phase) — Bones: %d" % [round_number, Economy.bones])
+	print("Starting Day %d (shop phase) — Bones: %d" % [round_number, Economy.bones])
+
+
+## Fully resets run state for a new game (Start from MainMenu, or Retry
+## from GameOverScreen/GameWonScreen). Does NOT touch the Battle scene
+## reference — a freshly loaded Battle scene re-registers itself anyway.
+func reset_run() -> void:
+	round_number = 1
+	state = GameState.SHOP
+	player_team = []
+	hearts = MAX_HEARTS
+	Economy.reset()
+	print("=== New run started — Day 1, %d hearts ===" % hearts)
 
 
 func _format_owned_team(team: Array[OwnedCreature]) -> String:
