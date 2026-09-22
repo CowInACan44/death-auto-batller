@@ -17,6 +17,7 @@ config/features=PackedStringArray("4.7", "GL Compatibility")
 [autoload]
 
 CreaturePool="*res://autoload/creature_pool.gd"
+RoundManager="*res://autoload/round_manager.gd"
 
 [display]
 
