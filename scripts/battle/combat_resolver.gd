@@ -28,14 +28,14 @@ class CombatUnit:
 	var attack_timer: float = 0.0
 	var alive: bool = true
 
-	func _init(p_creature_data: CreatureData, p_slot: GraveSlot, p_team: GraveSlot.Team, p_lane_index: int) -> void:
+	func _init(p_creature_data: CreatureData, p_is_shiny: bool, p_slot: GraveSlot, p_team: GraveSlot.Team, p_lane_index: int) -> void:
 		creature_data = p_creature_data
 		slot = p_slot
 		team = p_team
 		lane_index = p_lane_index
-		max_hp = p_creature_data.max_hp
-		current_hp = p_creature_data.max_hp
-		current_attack = p_creature_data.attack
+		max_hp = OwnedCreature.calc_effective_max_hp(p_creature_data, p_is_shiny)
+		current_hp = max_hp
+		current_attack = OwnedCreature.calc_effective_attack(p_creature_data, p_is_shiny)
 		attack_speed = p_creature_data.attack_speed
 
 
@@ -84,7 +84,7 @@ func _build_units(slots: Array[GraveSlot], team: GraveSlot.Team) -> Array[Combat
 	for slot in slots:
 		if slot.occupant == null:
 			continue
-		units.append(CombatUnit.new(slot.occupant.creature_data, slot, team, slot.slot_index))
+		units.append(CombatUnit.new(slot.occupant.creature_data, slot.occupant.is_shiny, slot, team, slot.slot_index))
 	return units
 
 

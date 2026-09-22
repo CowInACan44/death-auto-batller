@@ -31,19 +31,21 @@ func get_empty_slot(team: GraveSlot.Team) -> GraveSlot:
 
 
 ## Temporary manual test of the round loop — remove once the shop
-## exists. Manually seats a player team, starts a battle phase (which
+## exists. Manually seats a player team (one forced shiny, to prove the
+## stat boost carries into combat), starts a battle phase (which
 ## generates + seats the enemy team), runs real combat, and feeds the
 ## result into end_battle_phase() to confirm the loop advances to
 ## round 2 correctly.
 func _run_round_loop_test() -> void:
-	var test_team: Array[CreatureData] = [
-		CreaturePool.get_by_line_and_stage("bone_beasts", 1),
-		CreaturePool.get_by_line_and_stage("slime_skulls", 1),
+	var test_team: Array[OwnedCreature] = [
+		OwnedCreature.new(CreaturePool.get_by_line_and_stage("bone_beasts", 1), true), # forced shiny
+		OwnedCreature.new(CreaturePool.get_by_line_and_stage("slime_skulls", 1)),
 	]
 
 	for i in test_team.size():
 		var unit: Unit = UNIT_SCENE.instantiate()
-		unit.creature_data = test_team[i]
+		unit.creature_data = test_team[i].data
+		unit.is_shiny = test_team[i].is_shiny
 		add_child(unit)
 		player_grave_slots[i].place_unit(unit)
 

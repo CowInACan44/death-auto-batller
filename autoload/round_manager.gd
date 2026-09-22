@@ -10,7 +10,7 @@ const UNIT_SCENE := preload("res://scenes/unit/unit.tscn")
 
 var round_number: int = 1
 var state: GameState = GameState.SHOP
-var player_team: Array[CreatureData] = []
+var player_team: Array[OwnedCreature] = []
 
 var _battle: Node = null
 
@@ -35,8 +35,8 @@ func start_battle_phase() -> void:
 
 	print("Round %d — Player: %s vs Enemy: %s" % [
 		round_number,
-		_format_team(player_team),
-		_format_team(enemy_team),
+		_format_owned_team(player_team),
+		_format_data_team(enemy_team),
 	])
 
 	state = GameState.BATTLE
@@ -72,7 +72,14 @@ func end_battle_phase(player_won: bool) -> void:
 	print("Starting round %d (shop phase) — Bones: %d" % [round_number, Economy.bones])
 
 
-func _format_team(team: Array[CreatureData]) -> String:
+func _format_owned_team(team: Array[OwnedCreature]) -> String:
+	var names: Array[String] = []
+	for owned in team:
+		names.append(("✨" if owned.is_shiny else "") + owned.data.creature_name)
+	return "[%s]" % ", ".join(names)
+
+
+func _format_data_team(team: Array[CreatureData]) -> String:
 	var names: Array[String] = []
 	for creature in team:
 		names.append(creature.creature_name)
