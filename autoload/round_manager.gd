@@ -1,8 +1,8 @@
 extends Node
 
-## Drives the shop/battle/result cycle. Combat resolution and the shop
-## itself don't exist yet — this only sequences state and spawns teams
-## into grave slots.
+## Drives the shop/battle/result cycle: seats teams into grave slots,
+## hands them to CombatResolver, and feeds the outcome back into the
+## round result. The shop itself isn't wired in yet.
 
 enum GameState { SHOP, BATTLE, RESULT }
 
@@ -40,6 +40,17 @@ func start_battle_phase() -> void:
 	])
 
 	state = GameState.BATTLE
+
+
+## Runs the actual auto-battle between the registered Battle scene's grave
+## slots and returns the outcome for end_battle_phase() to consume.
+func resolve_combat() -> CombatResolver.Result:
+	if _battle == null:
+		push_warning("RoundManager: no battle scene registered, can't resolve combat")
+		return CombatResolver.Result.DRAW
+
+	var resolver := CombatResolver.new()
+	return resolver.resolve(_battle.player_grave_slots, _battle.enemy_grave_slots)
 
 
 func end_battle_phase(player_won: bool) -> void:

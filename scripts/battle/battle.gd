@@ -1,7 +1,7 @@
 extends Node2D
 
-# Battle scene: grave slots for player and enemy units.
-# Auto-battle logic to be added later.
+# Battle scene: grave slots for player and enemy units. Combat itself is
+# resolved by CombatResolver via RoundManager.resolve_combat().
 
 const UNIT_SCENE := preload("res://scenes/unit/unit.tscn")
 
@@ -30,10 +30,10 @@ func get_empty_slot(team: GraveSlot.Team) -> GraveSlot:
 	return null
 
 
-## Temporary manual test of the round loop — remove once the shop and
-## real combat resolution exist. Manually seats a player team, starts
-## a battle phase (which generates + seats the enemy team), then
-## immediately ends it as a win to confirm the loop advances to
+## Temporary manual test of the round loop — remove once the shop
+## exists. Manually seats a player team, starts a battle phase (which
+## generates + seats the enemy team), runs real combat, and feeds the
+## result into end_battle_phase() to confirm the loop advances to
 ## round 2 correctly.
 func _run_round_loop_test() -> void:
 	var test_team: Array[CreatureData] = [
@@ -49,7 +49,10 @@ func _run_round_loop_test() -> void:
 
 	RoundManager.player_team = test_team
 	RoundManager.start_battle_phase()
-	RoundManager.end_battle_phase(true)
+
+	var result := RoundManager.resolve_combat()
+	# A draw (timeout with survivors on both sides) counts as not a win.
+	RoundManager.end_battle_phase(result == CombatResolver.Result.PLAYER_WIN)
 
 	_run_economy_test()
 
