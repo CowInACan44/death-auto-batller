@@ -155,7 +155,7 @@ func resolve_combat() -> CombatResolver.Result:
 		return CombatResolver.Result.DRAW
 
 	var resolver := CombatResolver.new()
-	return resolver.resolve(_battle.player_grave_slots, _battle.enemy_grave_slots)
+	return await resolver.resolve(_battle.player_grave_slots, _battle.enemy_grave_slots)
 
 
 func end_battle_phase(player_won: bool) -> void:

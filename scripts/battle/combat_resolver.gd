@@ -12,6 +12,10 @@ enum Result { PLAYER_WIN, ENEMY_WIN, DRAW }
 
 const TICK := 0.1
 const MAX_TIME := 30.0
+## Real-world pause after each attack so a human watching the Battle
+## scene can actually see HP tick down instead of the whole fight
+## resolving within a single engine frame. Tune freely.
+const ATTACK_DELAY := 0.3
 
 ## Per-battle combat state for one creature. Wraps a CreatureData instead
 ## of mutating it directly, since the same CreatureData resource is shared
@@ -64,6 +68,9 @@ func resolve(player_slots: Array[GraveSlot], enemy_slots: Array[GraveSlot]) -> R
 			if unit.attack_timer >= interval:
 				unit.attack_timer -= interval
 				_perform_attack(unit)
+				await _real_pause(ATTACK_DELAY)
+				if not _team_alive(player_units) or not _team_alive(enemy_units):
+					break
 
 	var player_alive := _team_alive(player_units)
 	var enemy_alive := _team_alive(enemy_units)
@@ -78,6 +85,15 @@ func resolve(player_slots: Array[GraveSlot], enemy_slots: Array[GraveSlot]) -> R
 
 	_log("Combat ended after %.1fs — %s" % [elapsed, Result.find_key(result)])
 	return result
+
+
+## RefCounted has no direct tree access, so reach it via the running
+## SceneTree singleton instead of requiring a Node reference to be
+## threaded through the whole combat resolver.
+func _real_pause(seconds: float) -> void:
+	var tree := Engine.get_main_loop() as SceneTree
+	if tree:
+		await tree.create_timer(seconds).timeout
 
 
 func _build_units(slots: Array[GraveSlot], team: GraveSlot.Team) -> Array[CombatUnit]:
