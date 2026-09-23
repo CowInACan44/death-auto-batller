@@ -7,6 +7,11 @@ extends RefCounted
 ## retargeting. A creature's abilities (see Ability) fire on ON_ATTACK,
 ## ON_HIT, ON_KILL, and ON_DEATH. Only DAMAGE and BUFF_ATTACK effects
 ## actually resolve — HEAL, BUFF_HP, and SUMMON are stubbed as no-ops.
+##
+## A full wipe of either side ends combat immediately with a clean win/loss.
+## If MAX_TIME runs out with survivors on both sides, the side with more
+## living units wins (total remaining HP as a tiebreak) rather than it
+## automatically scoring a draw — see _score_timeout().
 
 enum Result { PLAYER_WIN, ENEMY_WIN, DRAW }
 
@@ -79,11 +84,55 @@ func resolve(player_slots: Array[GraveSlot], enemy_slots: Array[GraveSlot]) -> R
 		result = Result.PLAYER_WIN
 	elif enemy_alive and not player_alive:
 		result = Result.ENEMY_WIN
-	else:
+	elif not player_alive and not enemy_alive:
+		# Not reachable under the current sequential tie-break (one side
+		# always gets to act before the other, so a true simultaneous
+		# double-wipe can't happen) — kept as a defensive true-draw case.
 		result = Result.DRAW
+	else:
+		# Timeout with survivors on both sides. A near-wipe (e.g. 3 of 4
+		# enemies dead) used to score identically to a total stalemate
+		# here — now the side with more living units wins outright, with
+		# total remaining HP as a tiebreak, and only an exact tie on both
+		# is a genuine draw.
+		result = _score_timeout()
 
-	_log("Combat ended after %.1fs — %s" % [elapsed, Result.find_key(result)])
+	var player_count := _alive_count(player_units)
+	var enemy_count := _alive_count(enemy_units)
+	_log("Combat ended after %.1fs — %s (survivors: P=%d, E=%d)" % [
+		elapsed, Result.find_key(result), player_count, enemy_count,
+	])
 	return result
+
+
+func _score_timeout() -> Result:
+	var player_count := _alive_count(player_units)
+	var enemy_count := _alive_count(enemy_units)
+	if player_count != enemy_count:
+		return Result.PLAYER_WIN if player_count > enemy_count else Result.ENEMY_WIN
+
+	var player_hp := _total_hp(player_units)
+	var enemy_hp := _total_hp(enemy_units)
+	if player_hp != enemy_hp:
+		return Result.PLAYER_WIN if player_hp > enemy_hp else Result.ENEMY_WIN
+
+	return Result.DRAW
+
+
+func _alive_count(units: Array[CombatUnit]) -> int:
+	var count := 0
+	for unit in units:
+		if unit.alive:
+			count += 1
+	return count
+
+
+func _total_hp(units: Array[CombatUnit]) -> int:
+	var total := 0
+	for unit in units:
+		if unit.alive:
+			total += unit.current_hp
+	return total
 
 
 ## RefCounted has no direct tree access, so reach it via the running
