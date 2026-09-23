@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="Ability" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/ability.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+trigger = "ON_HIT"
+target = "SELF"
+effect_type = "HEAL"
+magnitude = 4

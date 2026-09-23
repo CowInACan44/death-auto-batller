@@ -1,8 +1,10 @@
 extends Node2D
 class_name Unit
 
-## Base creature/unit scene: a colored placeholder body + a name/HP label.
-## No real art yet — color is just a per-evolution-line differentiator.
+## Base creature/unit scene: a colored placeholder body, a name label
+## above it, and a heart/sword icon pair below showing current HP/Attack
+## (Super Auto Pets style). No real art yet — color is just a
+## per-evolution-line differentiator, and the icons are plain glyphs.
 @export var creature_data: CreatureData
 @export var is_shiny: bool = false
 
@@ -25,15 +27,17 @@ const ATTACK_LUNGE_DISTANCE := 20.0
 const ATTACK_LUNGE_LEG_DURATION := 0.15 # each leg (out, then back)
 
 @onready var body: ColorRect = $Body
-@onready var info_label: Label = $InfoLabel
+@onready var name_label: Label = $NameLabel
+@onready var hp_label: Label = $HPLabel
+@onready var attack_label: Label = $AttackLabel
 
 var _is_dead := false
 
 
 func _ready() -> void:
 	_apply_color()
-	var max_hp := _effective_max_hp()
-	update_display(max_hp, max_hp)
+	_update_name()
+	update_display(_effective_max_hp(), _effective_attack())
 
 
 func _apply_color() -> void:
@@ -44,17 +48,30 @@ func _apply_color() -> void:
 	body.color = base_color * SHINY_TINT if is_shiny else base_color
 
 
+func _update_name() -> void:
+	if creature_data == null:
+		name_label.text = ""
+		return
+	var shiny_prefix := "✨" if is_shiny else ""
+	name_label.text = "%s%s" % [shiny_prefix, creature_data.creature_name]
+
+
 func _effective_max_hp() -> int:
 	return OwnedCreature.calc_effective_max_hp(creature_data, is_shiny) if creature_data else 0
 
 
-## Called by CombatResolver whenever this unit's HP changes, so the label
-## stays live during a fight instead of only reflecting the starting value.
-func update_display(current_hp: int, max_hp: int) -> void:
+func _effective_attack() -> int:
+	return OwnedCreature.calc_effective_attack(creature_data, is_shiny) if creature_data else 0
+
+
+## Called by CombatResolver whenever this unit's HP or Attack changes, so
+## the icons stay live during a fight instead of only reflecting the
+## starting values.
+func update_display(current_hp: int, current_attack: int) -> void:
 	if _is_dead or creature_data == null:
 		return
-	var shiny_prefix := "✨" if is_shiny else ""
-	info_label.text = "%s%s\n%d/%d" % [shiny_prefix, creature_data.creature_name, current_hp, max_hp]
+	hp_label.text = "♥ %d" % current_hp
+	attack_label.text = "⚔ %d" % current_attack
 
 
 ## Lunges toward target_global_position and back — the total duration
@@ -79,5 +96,7 @@ func play_attack_animation(target_global_position: Vector2) -> void:
 func die() -> void:
 	_is_dead = true
 	body.color = DEAD_COLOR
-	info_label.modulate = Color(0.6, 0.6, 0.6)
-	info_label.text += "\n(dead)"
+	name_label.modulate = Color(0.6, 0.6, 0.6)
+	hp_label.modulate = Color(0.6, 0.6, 0.6)
+	attack_label.modulate = Color(0.6, 0.6, 0.6)
+	name_label.text += " (dead)"

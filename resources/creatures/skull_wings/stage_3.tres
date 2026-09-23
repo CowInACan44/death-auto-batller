@@ -1,6 +1,7 @@
-[gd_resource type="Resource" script_class="CreatureData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="CreatureData" load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/resources/creature_data.gd" id="1_script"]
+[ext_resource type="Resource" path="res://resources/abilities/skull_wings_on_attack_damage_stage3.tres" id="2_ability"]
 
 [resource]
 script = ExtResource("1_script")
@@ -11,3 +12,4 @@ max_hp = 315
 attack = 56
 attack_speed = 1.0
 bone_value = 6
+abilities = Array[Ability]([ExtResource("2_ability")])

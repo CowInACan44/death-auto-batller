@@ -5,8 +5,8 @@ extends RefCounted
 ## slots and returns the outcome. Each creature attacks whatever's directly
 ## across its lane; if that lane's enemy is dead, it stays idle rather than
 ## retargeting. A creature's abilities (see Ability) fire on ON_ATTACK,
-## ON_HIT, ON_KILL, and ON_DEATH. Only DAMAGE and BUFF_ATTACK effects
-## actually resolve — HEAL, BUFF_HP, and SUMMON are stubbed as no-ops.
+## ON_HIT, ON_KILL, and ON_DEATH. DAMAGE, BUFF_ATTACK, HEAL, and BUFF_HP
+## all resolve — SUMMON is still stubbed as a no-op (no creature uses it yet).
 ##
 ## A full wipe of either side ends combat immediately with a clean win/loss.
 ## If MAX_TIME runs out with survivors on both sides, the side with more
@@ -194,7 +194,7 @@ func _log_unmatched_lanes() -> void:
 
 func _refresh_display(unit: CombatUnit) -> void:
 	if unit.slot and unit.slot.occupant:
-		unit.slot.occupant.update_display(unit.current_hp, unit.max_hp)
+		unit.slot.occupant.update_display(unit.current_hp, unit.current_attack)
 
 
 ## Plays the attacker's lunge animation toward the target's on-screen
@@ -312,9 +312,32 @@ func _apply_ability_effect(source: CombatUnit, ability: Ability, targets: Array[
 				_log("%s's ability triggers: %s attack buffed to %d" % [
 					_name(source), _name(target), target.current_attack,
 				])
+				_refresh_display(target)
 
-		"HEAL", "BUFF_HP", "SUMMON":
-			pass # not implemented yet — stubbed no-op
+		"HEAL":
+			for target in targets:
+				if not target.alive:
+					continue
+				target.current_hp = min(target.current_hp + ability.magnitude, target.max_hp)
+				_log("%s's ability heals %s for %d. %s HP: %d/%d" % [
+					_name(source), _name(target), ability.magnitude,
+					_name(target), target.current_hp, target.max_hp,
+				])
+				_refresh_display(target)
+
+		"BUFF_HP":
+			for target in targets:
+				if not target.alive:
+					continue
+				target.max_hp += ability.magnitude
+				target.current_hp += ability.magnitude
+				_log("%s's ability triggers: %s HP buffed — now %d/%d" % [
+					_name(source), _name(target), target.current_hp, target.max_hp,
+				])
+				_refresh_display(target)
+
+		"SUMMON":
+			pass # not implemented yet — no creature currently uses this
 
 
 func _log(text: String) -> void:
