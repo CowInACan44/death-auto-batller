@@ -67,8 +67,7 @@ func resolve(player_slots: Array[GraveSlot], enemy_slots: Array[GraveSlot]) -> R
 			unit.attack_timer += TICK
 			if unit.attack_timer >= interval:
 				unit.attack_timer -= interval
-				_perform_attack(unit)
-				await _real_pause(ATTACK_DELAY)
+				await _perform_attack(unit)
 				if not _team_alive(player_units) or not _team_alive(enemy_units):
 					break
 
@@ -149,6 +148,16 @@ func _refresh_display(unit: CombatUnit) -> void:
 		unit.slot.occupant.update_display(unit.current_hp, unit.max_hp)
 
 
+## Plays the attacker's lunge animation toward the target's on-screen
+## position; its duration is also this fight's real-time pacing beat.
+## Falls back to a bare pause if either unit's visual node is missing.
+func _play_attack_animation(attacker: CombatUnit, target: CombatUnit) -> void:
+	if attacker.slot and attacker.slot.occupant and target.slot and target.slot.occupant:
+		await attacker.slot.occupant.play_attack_animation(target.slot.occupant.global_position)
+	else:
+		await _real_pause(ATTACK_DELAY)
+
+
 func _perform_attack(attacker: CombatUnit) -> void:
 	var target := _lane_opponent(attacker)
 	if target == null or not target.alive:
@@ -157,6 +166,8 @@ func _perform_attack(attacker: CombatUnit) -> void:
 	_fire_trigger(attacker, "ON_ATTACK", {"target": target})
 	if not attacker.alive:
 		return # an ON_ATTACK ability could theoretically kill its own source later
+
+	await _play_attack_animation(attacker, target)
 
 	var damage := attacker.current_attack
 	target.current_hp = max(target.current_hp - damage, 0)

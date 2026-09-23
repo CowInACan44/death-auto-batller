@@ -19,6 +19,11 @@ const DEAD_COLOR := Color(0.2, 0.2, 0.2)
 ## Placeholder gold tint until real shiny art exists.
 const SHINY_TINT := Color(1.4, 1.2, 0.4, 1.0)
 
+## Attack animation — a lunge toward the target and back. No art yet, just
+## enough motion to read as "an attack happened" alongside the HP change.
+const ATTACK_LUNGE_DISTANCE := 20.0
+const ATTACK_LUNGE_LEG_DURATION := 0.15 # each leg (out, then back)
+
 @onready var body: ColorRect = $Body
 @onready var info_label: Label = $InfoLabel
 
@@ -50,6 +55,22 @@ func update_display(current_hp: int, max_hp: int) -> void:
 		return
 	var shiny_prefix := "✨" if is_shiny else ""
 	info_label.text = "%s%s\n%d/%d" % [shiny_prefix, creature_data.creature_name, current_hp, max_hp]
+
+
+## Lunges toward target_global_position and back — the total duration
+## (2x ATTACK_LUNGE_LEG_DURATION) is what CombatResolver waits on between
+## attacks, so this doubles as the fight's real-time pacing beat.
+func play_attack_animation(target_global_position: Vector2) -> void:
+	if _is_dead:
+		return
+
+	var lunge_offset := (target_global_position - global_position).normalized() * ATTACK_LUNGE_DISTANCE
+	var original_position := position
+
+	var tween := create_tween()
+	tween.tween_property(self, "position", original_position + lunge_offset, ATTACK_LUNGE_LEG_DURATION)
+	tween.tween_property(self, "position", original_position, ATTACK_LUNGE_LEG_DURATION)
+	await tween.finished
 
 
 ## Visual death marker — grays the unit out and leaves it in place rather

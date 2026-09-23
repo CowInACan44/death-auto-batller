@@ -8,6 +8,6 @@ creature_name = "Skull Knight"
 evolution_line = "skull_humanoids"
 stage = 3
 max_hp = 450
-attack = 40
+attack = 48
 attack_speed = 1.0
 bone_value = 6
