@@ -375,8 +375,11 @@ func _refresh_bench() -> void:
 			continue
 		var slot: RosterSlot = ROSTER_SLOT_SCENE.instantiate()
 		slot.active_index = -1
+		# Must add_child() before set_creature() — RosterSlot's @onready
+		# label isn't resolved until _ready() runs, which only happens
+		# once the node is actually in the tree.
+		bench_container.add_child(slot)
 		slot.set_creature(owned)
 		slot.creature_dropped.connect(_on_creature_dropped)
 		slot.clicked.connect(_on_slot_clicked)
-		bench_container.add_child(slot)
 		_bench_slot_nodes.append(slot)
