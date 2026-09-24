@@ -7,4 +7,4 @@ script = ExtResource("1_script")
 trigger = "ON_DEATH"
 target = "ADJACENT_ALLY"
 effect_type = "BUFF_ATTACK"
-magnitude = 5
+magnitude = 2

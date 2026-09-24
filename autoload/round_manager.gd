@@ -73,6 +73,19 @@ func clear_active_slot_for(creature: OwnedCreature) -> void:
 		active_lineup[idx] = null
 
 
+## Sells a roster member (bench or active) for its bone_value in bones,
+## removing it from both the roster and the active lineup. Same bones
+## payout a creature earns for dying in battle — selling is just cashing
+## it in early instead.
+func sell_creature(creature: OwnedCreature) -> void:
+	if creature not in roster:
+		return
+	clear_active_slot_for(creature)
+	roster.erase(creature)
+	Economy.award_bones(creature.data.bone_value)
+	print("Sold %s for %d bones" % [creature.data.creature_name, creature.data.bone_value])
+
+
 ## Checks whether the roster now holds MERGE_COUNT copies of the exact
 ## same creature (same CreatureData reference — line/name/stage all
 ## match by construction — AND same is_shiny status; a shiny and a

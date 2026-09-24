@@ -7,4 +7,4 @@ script = ExtResource("1_script")
 trigger = "ON_HIT"
 target = "SELF"
 effect_type = "HEAL"
-magnitude = 8
+magnitude = 3

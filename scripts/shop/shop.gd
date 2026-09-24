@@ -31,7 +31,12 @@ var slots: Array[ShopSlot] = []
 @onready var details_name_label: Label = $DetailsPopup/VBox/NameLabel
 @onready var details_stats_label: Label = $DetailsPopup/VBox/StatsLabel
 @onready var details_description_label: Label = $DetailsPopup/VBox/DescriptionLabel
+@onready var details_sell_button: Button = $DetailsPopup/VBox/SellButton
 @onready var details_close_button: Button = $DetailsPopup/VBox/CloseButton
+
+## Which owned roster creature the currently-open DetailsPopup is showing,
+## if any — null for a shop-offer popup (nothing owned yet to sell).
+var _details_owned: OwnedCreature = null
 
 ## One HBoxContainer row (info button + Buy/Lock buttons) per shop slot,
 ## built once in _ready() and refreshed (not rebuilt) on every change.
@@ -60,6 +65,7 @@ func _ready() -> void:
 	_build_rows()
 	_build_active_slots()
 	bench_container.creature_dropped.connect(_on_bench_empty_space_dropped)
+	details_sell_button.pressed.connect(_on_sell_pressed)
 	details_close_button.pressed.connect(details_popup.hide)
 	reroll_button.pressed.connect(_on_reroll_pressed)
 	fight_button.pressed.connect(_on_fight_pressed)
@@ -135,7 +141,16 @@ func _on_offer_info_pressed(slot_index: int) -> void:
 
 
 func _on_slot_clicked(owned: OwnedCreature) -> void:
-	_show_details(owned.data, owned.is_shiny)
+	_show_details(owned.data, owned.is_shiny, owned)
+
+
+func _on_sell_pressed() -> void:
+	if _details_owned == null:
+		return
+	RoundManager.sell_creature(_details_owned)
+	_details_owned = null
+	details_popup.hide()
+	_refresh_ui()
 
 
 ## A creature was dropped onto an active lane (target_slot.active_index
@@ -154,13 +169,19 @@ func _on_bench_empty_space_dropped(owned: OwnedCreature) -> void:
 	_refresh_ui()
 
 
-func _show_details(data: CreatureData, is_shiny: bool) -> void:
+## `owned` is null for a shop-offer popup (nothing owned yet to sell) and
+## the actual OwnedCreature for a roster/bench popup (shows the Sell button).
+func _show_details(data: CreatureData, is_shiny: bool, owned: OwnedCreature = null) -> void:
+	_details_owned = owned
 	var shiny_tag := "✨ " if is_shiny else ""
 	var hp := OwnedCreature.calc_effective_max_hp(data, is_shiny)
 	var attack := OwnedCreature.calc_effective_attack(data, is_shiny)
 	details_name_label.text = "%s%s (stage %d)" % [shiny_tag, data.creature_name, data.stage]
 	details_stats_label.text = "♥ %d  ⚔ %d" % [hp, attack]
 	details_description_label.text = data.description if data.description != "" else "(no description yet)"
+	details_sell_button.visible = owned != null
+	if owned != null:
+		details_sell_button.text = "Sell (+%d bones)" % owned.data.bone_value
 	details_popup.popup_centered()
 
 
