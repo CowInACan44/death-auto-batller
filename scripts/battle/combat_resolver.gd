@@ -5,8 +5,8 @@ extends RefCounted
 ## slots and returns the outcome. Each creature attacks whatever's directly
 ## across its lane; if that lane's enemy is dead, it stays idle rather than
 ## retargeting. A creature's abilities (see Ability) fire on ON_ATTACK,
-## ON_HIT, ON_KILL, and ON_DEATH. DAMAGE, BUFF_ATTACK, HEAL, and BUFF_HP
-## all resolve — SUMMON is still stubbed as a no-op (no creature uses it yet).
+## ON_HIT, ON_KILL, and ON_DEATH — DAMAGE, BUFF_ATTACK, HEAL, BUFF_HP, and
+## SUMMON all resolve.
 ##
 ## A full wipe of either side ends combat immediately with a clean win/loss.
 ## If MAX_TIME runs out with survivors on both sides, the side with more
@@ -21,6 +21,14 @@ const MAX_TIME := 30.0
 ## scene can actually see HP tick down instead of the whole fight
 ## resolving within a single engine frame. Tune freely.
 const ATTACK_DELAY := 0.3
+const UNIT_SCENE := preload("res://scenes/unit/unit.tscn")
+
+## "Slot 1" in human-facing terms (the frontmost grave slot) is
+## GraveSlot.slot_index 0 in code — TOP_ENEMY always targets whoever
+## currently occupies that literal slot, regardless of the attacker's own
+## lane, and simply no-ops if that slot's original occupant has already
+## died (no fallback to the next slot, at least for now).
+const TOP_ENEMY_LANE_INDEX := 0
 
 ## Per-battle combat state for one creature. Wraps a CreatureData instead
 ## of mutating it directly, since the same CreatureData resource is shared
@@ -52,8 +60,18 @@ var player_units: Array[CombatUnit] = []
 var enemy_units: Array[CombatUnit] = []
 var log_lines: Array[String] = []
 
+var player_slots: Array[GraveSlot] = []
+var enemy_slots: Array[GraveSlot] = []
+## The Battle scene, so a SUMMON effect can instantiate and add a real
+## visual Unit node, not just internal combat state. Null is tolerated
+## (summoned units just go visual-less) so this stays testable headless.
+var _battle_node: Node = null
 
-func resolve(player_slots: Array[GraveSlot], enemy_slots: Array[GraveSlot]) -> Result:
+
+func resolve(p_player_slots: Array[GraveSlot], p_enemy_slots: Array[GraveSlot], battle_node: Node = null) -> Result:
+	player_slots = p_player_slots
+	enemy_slots = p_enemy_slots
+	_battle_node = battle_node
 	player_units = _build_units(player_slots, GraveSlot.Team.PLAYER)
 	enemy_units = _build_units(enemy_slots, GraveSlot.Team.ENEMY)
 	_log_unmatched_lanes()
@@ -226,10 +244,14 @@ func _perform_attack(attacker: CombatUnit) -> void:
 	])
 	_refresh_display(target)
 
-	_fire_trigger(target, "ON_HIT", {"attacker": attacker})
-
+	# Death is checked before ON_HIT fires (not after) so a self-heal or
+	# other HP-restoring ON_HIT effect can't pull a unit back above 0 once
+	# it's already been struck down — a unit that died from this hit only
+	# gets its ON_DEATH abilities, never a last-gasp ON_HIT one.
 	if target.current_hp <= 0:
 		_kill(target, attacker)
+	else:
+		_fire_trigger(target, "ON_HIT", {"attacker": attacker})
 
 
 func _kill(target: CombatUnit, killer: CombatUnit) -> void:
@@ -303,18 +325,48 @@ func _resolve_ability_targets(unit: CombatUnit, ability: Ability, context: Dicti
 				front_candidates.sort_custom(func(a, b): return a.lane_index < b.lane_index)
 				result.append(front_candidates[0])
 
+		"TOP_ENEMY":
+			# Fixed slot, not the dynamically-retargeting FRONT_ENEMY — if
+			# whoever started in that slot has died, this just no-ops.
+			for enemy in _team_units(_other_team(unit.team)):
+				if enemy.lane_index == TOP_ENEMY_LANE_INDEX and enemy.alive:
+					result.append(enemy)
+					break
+
 	return result
 
 
+## Flat by default; if ability.scales_with_owned_line_count is set, the
+## magnitude is multiplied by how many of source's living teammates
+## (source included) share its evolution_line.
+func _effective_magnitude(source: CombatUnit, ability: Ability) -> int:
+	if not ability.scales_with_owned_line_count:
+		return ability.magnitude
+	return ability.magnitude * _count_line_members(source)
+
+
+func _count_line_members(source: CombatUnit) -> int:
+	var line := source.creature_data.evolution_line
+	if line == "none":
+		return 1
+	var count := 0
+	for unit in _team_units(source.team):
+		if unit.alive and unit.creature_data.evolution_line == line:
+			count += 1
+	return count
+
+
 func _apply_ability_effect(source: CombatUnit, ability: Ability, targets: Array[CombatUnit]) -> void:
+	var magnitude := _effective_magnitude(source, ability)
+
 	match ability.effect_type:
 		"DAMAGE":
 			for target in targets:
 				if not target.alive:
 					continue
-				target.current_hp = max(target.current_hp - ability.magnitude, 0)
+				target.current_hp = max(target.current_hp - magnitude, 0)
 				_log("%s's ability deals %d damage to %s. %s HP: %d/%d" % [
-					_name(source), ability.magnitude, _name(target),
+					_name(source), magnitude, _name(target),
 					_name(target), target.current_hp, target.max_hp,
 				])
 				_refresh_display(target)
@@ -325,7 +377,7 @@ func _apply_ability_effect(source: CombatUnit, ability: Ability, targets: Array[
 			for target in targets:
 				if not target.alive:
 					continue
-				target.current_attack += ability.magnitude
+				target.current_attack += magnitude
 				_log("%s's ability triggers: %s attack buffed to %d" % [
 					_name(source), _name(target), target.current_attack,
 				])
@@ -335,9 +387,9 @@ func _apply_ability_effect(source: CombatUnit, ability: Ability, targets: Array[
 			for target in targets:
 				if not target.alive:
 					continue
-				target.current_hp = min(target.current_hp + ability.magnitude, target.max_hp)
+				target.current_hp = min(target.current_hp + magnitude, target.max_hp)
 				_log("%s's ability heals %s for %d. %s HP: %d/%d" % [
-					_name(source), _name(target), ability.magnitude,
+					_name(source), _name(target), magnitude,
 					_name(target), target.current_hp, target.max_hp,
 				])
 				_refresh_display(target)
@@ -346,15 +398,67 @@ func _apply_ability_effect(source: CombatUnit, ability: Ability, targets: Array[
 			for target in targets:
 				if not target.alive:
 					continue
-				target.max_hp += ability.magnitude
-				target.current_hp += ability.magnitude
+				target.max_hp += magnitude
+				target.current_hp += magnitude
 				_log("%s's ability triggers: %s HP buffed — now %d/%d" % [
 					_name(source), _name(target), target.current_hp, target.max_hp,
 				])
 				_refresh_display(target)
 
 		"SUMMON":
-			pass # not implemented yet — no creature currently uses this
+			if ability.summon_creature == null or magnitude <= 0:
+				return
+			var empty_slots := _find_empty_slots(source.team, source.slot, magnitude)
+			if empty_slots.is_empty():
+				_log("%s's ability tries to summon %s, but there's no room." % [
+					_name(source), ability.summon_creature.creature_name,
+				])
+				return
+			for slot in empty_slots:
+				_spawn_unit(ability.summon_creature, slot, source.team)
+
+
+func _slots_for_team(team: GraveSlot.Team) -> Array[GraveSlot]:
+	return player_slots if team == GraveSlot.Team.PLAYER else enemy_slots
+
+
+## Picks up to `count` empty slots for a SUMMON effect: the dying unit's
+## own slot first (already vacated by _kill() before ON_DEATH fires), then
+## any other empty slot on that team in ascending lane order. Fewer empty
+## slots than `count` just means fewer copies spawn — never errors.
+func _find_empty_slots(team: GraveSlot.Team, priority_slot: GraveSlot, count: int) -> Array[GraveSlot]:
+	var result: Array[GraveSlot] = []
+	if priority_slot != null and priority_slot.is_empty():
+		result.append(priority_slot)
+
+	var sorted_slots := _slots_for_team(team).duplicate()
+	sorted_slots.sort_custom(func(a, b): return a.slot_index < b.slot_index)
+	for slot in sorted_slots:
+		if result.size() >= count:
+			break
+		if slot == priority_slot:
+			continue
+		if slot.is_empty():
+			result.append(slot)
+
+	return result
+
+
+## Adds a brand-new CombatUnit to the fight — never shiny (a fresh summon,
+## not a copy of whatever the parent was) — and gives it a real visual
+## Unit node in the vacated slot if a Battle scene is registered.
+func _spawn_unit(creature_data: CreatureData, slot: GraveSlot, team: GraveSlot.Team) -> void:
+	var new_unit := CombatUnit.new(creature_data, false, slot, team, slot.slot_index)
+	_team_units(team).append(new_unit)
+
+	if _battle_node:
+		var visual: Unit = UNIT_SCENE.instantiate()
+		visual.creature_data = creature_data
+		visual.is_shiny = false
+		_battle_node.add_child(visual)
+		slot.place_unit(visual)
+
+	_log("%s summons %s into lane %d!" % [_team_tag(team), creature_data.creature_name, slot.slot_index])
 
 
 func _log(text: String) -> void:

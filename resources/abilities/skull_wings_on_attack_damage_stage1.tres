@@ -5,6 +5,6 @@
 [resource]
 script = ExtResource("1_script")
 trigger = "ON_ATTACK"
-target = "RANDOM_ENEMY"
+target = "TOP_ENEMY"
 effect_type = "DAMAGE"
-magnitude = 1
+magnitude = 2

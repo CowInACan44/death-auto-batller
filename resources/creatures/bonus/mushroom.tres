@@ -1,6 +1,7 @@
-[gd_resource type="Resource" script_class="CreatureData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="CreatureData" load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/resources/creature_data.gd" id="1_script"]
+[ext_resource type="Resource" path="res://resources/abilities/mushroom_on_death_heal_adjacent.tres" id="2_ability"]
 
 [resource]
 script = ExtResource("1_script")
@@ -12,3 +13,4 @@ attack = 5
 attack_speed = 1.0
 shop_cost = 3
 bone_value = 1
+abilities = Array[Ability]([ExtResource("2_ability")])

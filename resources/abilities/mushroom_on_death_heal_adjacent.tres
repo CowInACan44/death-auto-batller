@@ -4,7 +4,7 @@
 
 [resource]
 script = ExtResource("1_script")
-trigger = "ON_HIT"
-target = "SELF"
+trigger = "ON_DEATH"
+target = "ADJACENT_ALLY"
 effect_type = "HEAL"
-magnitude = 1
+magnitude = 10
