@@ -14,5 +14,6 @@ attack = 12
 attack_speed = 1.0
 shop_cost = 3
 bone_value = 1
+description = "Drafted into an undead army it never agreed to join. Weak and unarmed on its own, but its death rattles something deeper in the ranks — the whole formation gets a little sturdier when one falls."
 next_stage = ExtResource("2_next_stage")
 abilities = Array[Ability]([ExtResource("3_ability")])

@@ -23,6 +23,8 @@ static func power_for_owned(owned: OwnedCreature) -> float:
 static func team_power(team: Array[OwnedCreature]) -> float:
 	var total := 0.0
 	for owned in team:
+		if owned == null:
+			continue
 		total += power_for_owned(owned)
 	return total
 

@@ -14,5 +14,6 @@ attack = 9
 attack_speed = 1.0
 shop_cost = 3
 bone_value = 1
+description = "Less a creature than a haunted puddle with opinions. The skull embedded in its body isn't attached to anything below the neck — nobody's quite sure how it keeps that thing up."
 next_stage = ExtResource("2_next_stage")
 abilities = Array[Ability]([ExtResource("3_ability")])

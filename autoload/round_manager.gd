@@ -10,7 +10,9 @@ extends Node
 ## 0 is GAME_OVER.
 ##
 ## roster = everything the player owns (bench + active). active_lineup =
-## the subset (max MAX_ACTIVE) actually seated into grave slots each Night.
+## a fixed MAX_ACTIVE-length array of lane slots, seated into grave slots
+## index-for-index each Night; a null entry means that lane is empty. Any
+## roster member not present in active_lineup is considered benched.
 
 enum GameState { SHOP, BATTLE, RESULT, GAME_OVER, GAME_WON }
 
@@ -26,7 +28,7 @@ const BOSS_POWER_MULTIPLIER := 1.75
 var round_number: int = 1
 var state: GameState = GameState.SHOP
 var roster: Array[OwnedCreature] = []
-var active_lineup: Array[OwnedCreature] = []
+var active_lineup: Array[OwnedCreature] = [null, null, null, null]
 var hearts: int = MAX_HEARTS
 
 var _battle: Node = null
@@ -43,24 +45,32 @@ func register_battle(battle: Node) -> void:
 ## (or the starter pick) doesn't require a manual extra step to fight.
 func add_to_roster(creature: OwnedCreature) -> void:
 	roster.append(creature)
-	if active_lineup.size() < MAX_ACTIVE:
-		active_lineup.append(creature)
+	var empty_index := active_lineup.find(null)
+	if empty_index != -1:
+		active_lineup[empty_index] = creature
 	check_for_merge(creature)
 
 
-## Moves a roster member into/out of the active lineup. Returns false
-## (no-op) if trying to activate while already at MAX_ACTIVE.
-func set_active(creature: OwnedCreature, active: bool) -> bool:
-	if active:
-		if creature in active_lineup:
-			return true
-		if active_lineup.size() >= MAX_ACTIVE:
-			return false
-		active_lineup.append(creature)
-		return true
+## Places creature into active_lineup[index], swapping with whatever was
+## already there. If creature came from another active slot, the displaced
+## occupant (if any) takes its vacated spot — a true swap. If creature came
+## from the bench, the displaced occupant simply becomes benched, since
+## nothing reclaims its old spot.
+func set_active_slot(creature: OwnedCreature, index: int) -> void:
+	if index < 0 or index >= MAX_ACTIVE:
+		return
+	var source_index := active_lineup.find(creature)
+	var displaced := active_lineup[index]
+	active_lineup[index] = creature
+	if source_index != -1 and source_index != index:
+		active_lineup[source_index] = displaced
 
-	active_lineup.erase(creature)
-	return true
+
+## Removes creature from the active lineup (benches it), if present.
+func clear_active_slot_for(creature: OwnedCreature) -> void:
+	var idx := active_lineup.find(creature)
+	if idx != -1:
+		active_lineup[idx] = null
 
 
 ## Checks whether the roster now holds MERGE_COUNT copies of the exact
@@ -68,9 +78,9 @@ func set_active(creature: OwnedCreature, active: bool) -> bool:
 ## match by construction — AND same is_shiny status; a shiny and a
 ## non-shiny copy never merge together). If so, consumes 3 of them and
 ## adds 1 instance of next_stage, carrying is_shiny forward. If any
-## consumed copy was active, the evolved result takes its place in the
-## lineup. No-ops if next_stage is null (stage 3, or a bonus creature
-## with no evolution).
+## consumed copy was active, the evolved result takes over that lane
+## (the first such lane found, preserving lineup order/position). No-ops
+## if next_stage is null (stage 3, or a bonus creature with no evolution).
 func check_for_merge(creature_instance: OwnedCreature) -> void:
 	var matches: Array[OwnedCreature] = []
 	for owned in roster:
@@ -84,18 +94,20 @@ func check_for_merge(creature_instance: OwnedCreature) -> void:
 	if next_stage == null:
 		return
 
-	var was_active := false
+	var active_slot_index := -1
 	for i in MERGE_COUNT:
 		var consumed := matches[i]
-		if consumed in active_lineup:
-			was_active = true
-			active_lineup.erase(consumed)
+		var idx := active_lineup.find(consumed)
+		if idx != -1:
+			if active_slot_index == -1:
+				active_slot_index = idx
+			active_lineup[idx] = null
 		roster.erase(consumed)
 
 	var evolved := OwnedCreature.new(next_stage, creature_instance.is_shiny)
 	roster.append(evolved)
-	if was_active:
-		active_lineup.append(evolved)
+	if active_slot_index != -1:
+		active_lineup[active_slot_index] = evolved
 
 	print("%dx %s merged into %s!%s" % [
 		MERGE_COUNT,
@@ -114,11 +126,14 @@ func start_battle_phase() -> void:
 		push_warning("RoundManager: no battle scene registered, can't start battle phase")
 		return
 
-	for i in active_lineup.size():
+	for i in MAX_ACTIVE:
+		var owned: OwnedCreature = active_lineup[i]
+		if owned == null:
+			continue
 		var slot: GraveSlot = _battle.player_grave_slots[i]
 		var unit: Unit = UNIT_SCENE.instantiate()
-		unit.creature_data = active_lineup[i].data
-		unit.is_shiny = active_lineup[i].is_shiny
+		unit.creature_data = owned.data
+		unit.is_shiny = owned.is_shiny
 		_battle.add_child(unit)
 		slot.place_unit(unit)
 
@@ -199,7 +214,7 @@ func reset_run() -> void:
 	round_number = 1
 	state = GameState.SHOP
 	roster = []
-	active_lineup = []
+	active_lineup = [null, null, null, null]
 	hearts = MAX_HEARTS
 	Economy.reset()
 	print("=== New run started — Day 1, %d hearts ===" % hearts)
@@ -208,6 +223,8 @@ func reset_run() -> void:
 func _format_owned_team(team: Array[OwnedCreature]) -> String:
 	var names: Array[String] = []
 	for owned in team:
+		if owned == null:
+			continue
 		names.append(("✨" if owned.is_shiny else "") + owned.data.creature_name)
 	return "[%s]" % ", ".join(names)
 

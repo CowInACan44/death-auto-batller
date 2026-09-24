@@ -14,5 +14,6 @@ attack = 14
 attack_speed = 1.0
 shop_cost = 3
 bone_value = 1
+description = "Flies in tight, erratic loops, using echolocation off its own hollow skull. Prone to overcorrecting mid-attack, which occasionally results in hitting something it wasn't aiming for."
 next_stage = ExtResource("2_next_stage")
 abilities = Array[Ability]([ExtResource("3_ability")])

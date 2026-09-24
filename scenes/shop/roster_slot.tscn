@@ -1,0 +1,16 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/shop/roster_slot.gd" id="1_slot"]
+
+[node name="RosterSlot" type="Panel"]
+custom_minimum_size = Vector2(120, 56)
+script = ExtResource("1_slot")
+
+[node name="Label" type="Label" parent="."]
+mouse_filter = 2
+anchor_right = 1.0
+anchor_bottom = 1.0
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+text = "(empty)"

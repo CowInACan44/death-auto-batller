@@ -14,5 +14,6 @@ attack = 11
 attack_speed = 1.0
 shop_cost = 3
 bone_value = 1
+description = "Burrows through loose grave dirt in tight-knit clusters. A single Bone Beetle is harmless. A dozen of them finishing off something bigger tend to get very excited about it."
 next_stage = ExtResource("2_next_stage")
 abilities = Array[Ability]([ExtResource("3_ability")])

@@ -7,6 +7,8 @@ class_name CreatureData
 @export_enum("bone_beasts", "slime_skulls", "skull_wings", "bone_bugs", "skull_humanoids", "none")
 var evolution_line: String = "bone_beasts"
 @export_range(1, 3, 1) var stage: int = 1
+## Pokedex-style flavor text shown in the Shop details popup.
+@export_multiline var description: String = ""
 
 ## Combat stats
 @export var max_hp: int = 0

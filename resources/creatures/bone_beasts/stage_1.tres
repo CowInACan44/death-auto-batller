@@ -14,5 +14,6 @@ attack = 8
 attack_speed = 1.0
 shop_cost = 3
 bone_value = 1
+description = "A small skeletal hound that never learned it should have stopped digging. Loyal to whoever last fed it a bone, even after death. When it finally collapses, the last of its strength passes to whoever's fighting beside it."
 abilities = Array[Ability]([ExtResource("2_ability")])
 next_stage = ExtResource("3_next_stage")
