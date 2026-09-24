@@ -254,39 +254,56 @@ func _fire_trigger(unit: CombatUnit, trigger: String, context: Dictionary) -> vo
 		_apply_ability_effect(unit, ability, targets)
 
 
+## Every branch builds its result via explicit Array[CombatUnit] append
+## calls rather than .filter()/array-literal returns. GDScript's static
+## checker accepts a bare Array from .filter() (or a literal like [x])
+## being returned where -> Array[CombatUnit] is declared, but the runtime
+## coercion isn't reliable for every construction path — it can throw
+## "Trying to assign an array of type 'Array' to a variable of type
+## 'Array[CombatUnit]'" when the caller does `var targets := ...`. Explicit
+## typed-array construction sidesteps that entirely.
 func _resolve_ability_targets(unit: CombatUnit, ability: Ability, context: Dictionary) -> Array[CombatUnit]:
+	var result: Array[CombatUnit] = []
+
 	match ability.target:
 		"SELF":
-			return [unit]
+			result.append(unit)
 
 		"ADJACENT_ALLY":
-			var result: Array[CombatUnit] = []
 			for ally in _team_units(unit.team):
 				if ally == unit or not ally.alive:
 					continue
 				if abs(ally.lane_index - unit.lane_index) == 1:
 					result.append(ally)
-			return result
 
 		"ALL_ALLIES":
-			return _team_units(unit.team).filter(func(a): return a.alive)
+			for ally in _team_units(unit.team):
+				if ally.alive:
+					result.append(ally)
 
 		"TARGETED_ENEMY":
 			var event_unit: CombatUnit = context.get("target", context.get("attacker", context.get("killer")))
-			return [event_unit] if event_unit != null and event_unit.alive else []
+			if event_unit != null and event_unit.alive:
+				result.append(event_unit)
 
 		"RANDOM_ENEMY":
-			var alive_enemies := _team_units(_other_team(unit.team)).filter(func(e): return e.alive)
-			return [alive_enemies.pick_random()] if not alive_enemies.is_empty() else []
+			var alive_enemies: Array[CombatUnit] = []
+			for enemy in _team_units(_other_team(unit.team)):
+				if enemy.alive:
+					alive_enemies.append(enemy)
+			if not alive_enemies.is_empty():
+				result.append(alive_enemies.pick_random())
 
 		"FRONT_ENEMY":
-			var alive_enemies2 := _team_units(_other_team(unit.team)).filter(func(e): return e.alive)
-			if alive_enemies2.is_empty():
-				return []
-			alive_enemies2.sort_custom(func(a, b): return a.lane_index < b.lane_index)
-			return [alive_enemies2[0]]
+			var front_candidates: Array[CombatUnit] = []
+			for enemy in _team_units(_other_team(unit.team)):
+				if enemy.alive:
+					front_candidates.append(enemy)
+			if not front_candidates.is_empty():
+				front_candidates.sort_custom(func(a, b): return a.lane_index < b.lane_index)
+				result.append(front_candidates[0])
 
-	return []
+	return result
 
 
 func _apply_ability_effect(source: CombatUnit, ability: Ability, targets: Array[CombatUnit]) -> void:
