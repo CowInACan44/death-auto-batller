@@ -406,16 +406,19 @@ func _apply_ability_effect(source: CombatUnit, ability: Ability, targets: Array[
 				_refresh_display(target)
 
 		"SUMMON":
-			if ability.summon_creature == null or magnitude <= 0:
+			if ability.summon_evolution_line == "" or magnitude <= 0:
+				return
+			var summon_data := CreaturePool.get_by_line_and_stage(ability.summon_evolution_line, ability.summon_stage)
+			if summon_data == null:
 				return
 			var empty_slots := _find_empty_slots(source.team, source.slot, magnitude)
 			if empty_slots.is_empty():
 				_log("%s's ability tries to summon %s, but there's no room." % [
-					_name(source), ability.summon_creature.creature_name,
+					_name(source), summon_data.creature_name,
 				])
 				return
 			for slot in empty_slots:
-				_spawn_unit(ability.summon_creature, slot, source.team)
+				_spawn_unit(summon_data, slot, source.team)
 
 
 func _slots_for_team(team: GraveSlot.Team) -> Array[GraveSlot]:

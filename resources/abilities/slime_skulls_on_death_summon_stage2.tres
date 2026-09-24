@@ -1,7 +1,6 @@
-[gd_resource type="Resource" script_class="Ability" load_steps=3 format=3]
+[gd_resource type="Resource" script_class="Ability" load_steps=2 format=3]
 
 [ext_resource type="Script" path="res://scripts/resources/ability.gd" id="1_script"]
-[ext_resource type="Resource" path="res://resources/creatures/slime_skulls/stage_1.tres" id="2_summon"]
 
 [resource]
 script = ExtResource("1_script")
@@ -9,4 +8,5 @@ trigger = "ON_DEATH"
 target = "SELF"
 effect_type = "SUMMON"
 magnitude = 2
-summon_creature = ExtResource("2_summon")
+summon_evolution_line = "slime_skulls"
+summon_stage = 1

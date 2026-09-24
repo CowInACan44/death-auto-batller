@@ -20,5 +20,12 @@ var effect_type: String = "DAMAGE"
 ## creatures are still on the team, instead of staying flat.
 @export var scales_with_owned_line_count: bool = false
 
-## Only used when effect_type == SUMMON, null otherwise.
-@export var summon_creature: CreatureData
+## Only used when effect_type == SUMMON. Deliberately NOT a direct
+## CreatureData reference — a summon target is typically an earlier stage
+## of the same line, which already points forward to this stage via
+## next_stage, and Godot's .tres loader can't resolve that 2-file resource
+## cycle at parse time (confirmed: it fails both files with "referenced
+## non-existent resource"). Resolved through CreaturePool at the moment
+## the ability fires instead.
+@export_enum("bone_beasts", "slime_skulls", "skull_wings", "bone_bugs", "skull_humanoids", "none") var summon_evolution_line: String = ""
+@export_range(1, 3, 1) var summon_stage: int = 1
