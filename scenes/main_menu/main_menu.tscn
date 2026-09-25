@@ -1,22 +1,30 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene format=3 uid="uid://bf4on7wje6uic"]
 
-[ext_resource type="Script" path="res://scripts/main_menu/main_menu.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://j2esi0gxe07g" path="res://scripts/main_menu/main_menu.gd" id="1_script"]
 
-[node name="MainMenu" type="Control"]
+[node name="MainMenu" type="Control" unique_id=232904678]
+layout_mode = 3
+anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 script = ExtResource("1_script")
 
-[node name="CenterContainer" type="CenterContainer" parent="."]
+[node name="CenterContainer" type="CenterContainer" parent="." unique_id=21306701]
+layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
 
-[node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer" unique_id=198195738]
+layout_mode = 2
 
-[node name="TitleLabel" type="Label" parent="CenterContainer/VBoxContainer"]
+[node name="TitleLabel" type="Label" parent="CenterContainer/VBoxContainer" unique_id=1041730717]
+layout_mode = 2
 theme_override_font_sizes/font_size = 32
-horizontal_alignment = 1
 text = "Graveyard Autobattler"
+horizontal_alignment = 1
 
-[node name="StartButton" type="Button" parent="CenterContainer/VBoxContainer"]
+[node name="StartButton" type="Button" parent="CenterContainer/VBoxContainer" unique_id=119735525]
+layout_mode = 2
 text = "Start"

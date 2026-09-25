@@ -1,19 +1,19 @@
-[gd_resource type="Resource" script_class="CreatureData" load_steps=4 format=3]
+[gd_resource type="Resource" script_class="CreatureData" format=3 uid="uid://bbcik4ua6kwck"]
 
-[ext_resource type="Script" path="res://scripts/resources/creature_data.gd" id="1_script"]
-[ext_resource type="Resource" path="res://resources/abilities/on_death_buff_adjacent_ally.tres" id="2_ability"]
-[ext_resource type="Resource" path="res://resources/creatures/bone_beasts/stage_2.tres" id="3_next_stage"]
+[ext_resource type="Script" uid="uid://dwt0b207qh8of" path="res://scripts/resources/creature_data.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://cf5jkir7wq1hn" path="res://scripts/resources/ability.gd" id="1_vqbrx"]
+[ext_resource type="Resource" uid="uid://c7f6qrneupyq" path="res://resources/abilities/on_death_buff_adjacent_ally.tres" id="2_ability"]
+[ext_resource type="Resource" uid="uid://p6pyoftekirt" path="res://resources/creatures/bone_beasts/stage_2.tres" id="3_next_stage"]
+[ext_resource type="Texture2D" uid="uid://dbgrjc4xfmxgo" path="res://Assets/BonePup.png" id="5_0em7g"]
 
 [resource]
 script = ExtResource("1_script")
 creature_name = "Bone Pup"
-evolution_line = "bone_beasts"
-stage = 1
-max_hp = 7
+description = "A small skeletal hound that never learned it should have stopped digging. Loyal to whoever last fed it a bone, even after death. When it finally collapses, the last of its strength passes to whoever's fighting beside it."
+max_hp = 10
 attack = 4
-attack_speed = 1.0
 shop_cost = 3
 bone_value = 1
-description = "A small skeletal hound that never learned it should have stopped digging. Loyal to whoever last fed it a bone, even after death. When it finally collapses, the last of its strength passes to whoever's fighting beside it."
-abilities = Array[Ability]([ExtResource("2_ability")])
+sprite = ExtResource("5_0em7g")
 next_stage = ExtResource("3_next_stage")
+abilities = Array[ExtResource("1_vqbrx")]([ExtResource("2_ability")])
