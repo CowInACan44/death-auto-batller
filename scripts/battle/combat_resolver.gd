@@ -2,21 +2,21 @@ class_name CombatResolver
 extends RefCounted
 
 ## Runs one lane-based, tick-driven auto-battle between two sides' grave
-## slots and returns the outcome. Each creature attacks whatever's directly
-## across its lane; if that lane's enemy is dead, it stays idle rather than
-## retargeting. A creature's abilities (see Ability) fire on ON_ATTACK,
-## ON_HIT, ON_KILL, and ON_DEATH — DAMAGE, BUFF_ATTACK, HEAL, BUFF_HP, and
-## SUMMON all resolve.
+## slots and returns the outcome. Each creature prefers whatever's directly
+## across its lane; if that lane's enemy is dead (or was never matched —
+## mismatched team sizes), it retargets to the frontmost living enemy
+## instead of sitting idle, so combat always converges to a real wipe. A
+## creature's abilities (see Ability) fire on ON_ATTACK, ON_HIT, ON_KILL,
+## and ON_DEATH — DAMAGE, BUFF_ATTACK, HEAL, BUFF_HP, and SUMMON all resolve.
 ##
-## A full wipe of either side ends combat immediately with a clean win/loss.
-## If MAX_TIME runs out with survivors on both sides, the side with more
-## living units wins (total remaining HP as a tiebreak) rather than it
-## automatically scoring a draw — see _score_timeout().
+## There is no timeout: combat runs until one side is fully wiped, and
+## that's the only way a result is decided. (DRAW is kept only as a
+## defensive case for a truly simultaneous double-wipe, which the
+## sequential per-tick ordering below makes effectively unreachable.)
 
 enum Result { PLAYER_WIN, ENEMY_WIN, DRAW }
 
 const TICK := 0.1
-const MAX_TIME := 30.0
 ## Real-world pause after each attack so a human watching the Battle
 ## scene can actually see HP tick down instead of the whole fight
 ## resolving within a single engine frame. Tune freely.
@@ -74,10 +74,9 @@ func resolve(p_player_slots: Array[GraveSlot], p_enemy_slots: Array[GraveSlot], 
 	_battle_node = battle_node
 	player_units = _build_units(player_slots, GraveSlot.Team.PLAYER)
 	enemy_units = _build_units(enemy_slots, GraveSlot.Team.ENEMY)
-	_log_unmatched_lanes()
 
 	var elapsed := 0.0
-	while elapsed < MAX_TIME and _team_alive(player_units) and _team_alive(enemy_units):
+	while _team_alive(player_units) and _team_alive(enemy_units):
 		elapsed += TICK
 		# Player units are processed before enemy units each tick, so a
 		# lane where both sides land a simultaneous killing blow favors
@@ -97,23 +96,19 @@ func resolve(p_player_slots: Array[GraveSlot], p_enemy_slots: Array[GraveSlot], 
 	var player_alive := _team_alive(player_units)
 	var enemy_alive := _team_alive(enemy_units)
 
+	# The loop only exits once at least one side is fully wiped, so "both
+	# still alive" can't happen here — the only case left unhandled below
+	# is a true simultaneous double-wipe, which the sequential per-tick
+	# ordering (player units act before enemy units) makes effectively
+	# unreachable in practice. Kept as a defensive draw rather than assumed
+	# away entirely.
 	var result: Result
 	if player_alive and not enemy_alive:
 		result = Result.PLAYER_WIN
 	elif enemy_alive and not player_alive:
 		result = Result.ENEMY_WIN
-	elif not player_alive and not enemy_alive:
-		# Not reachable under the current sequential tie-break (one side
-		# always gets to act before the other, so a true simultaneous
-		# double-wipe can't happen) — kept as a defensive true-draw case.
-		result = Result.DRAW
 	else:
-		# Timeout with survivors on both sides. A near-wipe (e.g. 3 of 4
-		# enemies dead) used to score identically to a total stalemate
-		# here — now the side with more living units wins outright, with
-		# total remaining HP as a tiebreak, and only an exact tie on both
-		# is a genuine draw.
-		result = _score_timeout()
+		result = Result.DRAW
 
 	var player_count := _alive_count(player_units)
 	var enemy_count := _alive_count(enemy_units)
@@ -123,34 +118,12 @@ func resolve(p_player_slots: Array[GraveSlot], p_enemy_slots: Array[GraveSlot], 
 	return result
 
 
-func _score_timeout() -> Result:
-	var player_count := _alive_count(player_units)
-	var enemy_count := _alive_count(enemy_units)
-	if player_count != enemy_count:
-		return Result.PLAYER_WIN if player_count > enemy_count else Result.ENEMY_WIN
-
-	var player_hp := _total_hp(player_units)
-	var enemy_hp := _total_hp(enemy_units)
-	if player_hp != enemy_hp:
-		return Result.PLAYER_WIN if player_hp > enemy_hp else Result.ENEMY_WIN
-
-	return Result.DRAW
-
-
 func _alive_count(units: Array[CombatUnit]) -> int:
 	var count := 0
 	for unit in units:
 		if unit.alive:
 			count += 1
 	return count
-
-
-func _total_hp(units: Array[CombatUnit]) -> int:
-	var total := 0
-	for unit in units:
-		if unit.alive:
-			total += unit.current_hp
-	return total
 
 
 ## RefCounted has no direct tree access, so reach it via the running
@@ -193,21 +166,32 @@ func _lane_opponent(unit: CombatUnit) -> CombatUnit:
 	return null
 
 
+## The unit an attacker actually swings at: its lane opponent if that
+## opponent is still alive, otherwise the frontmost living enemy — so a
+## dead or never-matched lane (unequal team sizes) never leaves an
+## attacker permanently idle. This is what guarantees combat always ends
+## in a real wipe instead of stalling out with survivors on both sides.
+func _current_target(attacker: CombatUnit) -> CombatUnit:
+	var lane_target := _lane_opponent(attacker)
+	if lane_target != null and lane_target.alive:
+		return lane_target
+
+	var candidates: Array[CombatUnit] = []
+	for enemy in _team_units(_other_team(attacker.team)):
+		if enemy.alive:
+			candidates.append(enemy)
+	if candidates.is_empty():
+		return null
+	candidates.sort_custom(func(a, b): return a.lane_index < b.lane_index)
+	return candidates[0]
+
+
 func _team_tag(team: GraveSlot.Team) -> String:
 	return "P" if team == GraveSlot.Team.PLAYER else "E"
 
 
 func _name(unit: CombatUnit) -> String:
 	return "[%s] %s" % [_team_tag(unit.team), unit.creature_data.creature_name]
-
-
-## A unit whose lane has no opponent at all (unequal team sizes) will sit
-## idle for the whole fight and can make the loser side look "unkillable"
-## in the log — call this out once, up front, instead of leaving it silent.
-func _log_unmatched_lanes() -> void:
-	for unit in player_units + enemy_units:
-		if _lane_opponent(unit) == null:
-			_log("%s (lane %d) has no opponent this fight and will stay idle." % [_name(unit), unit.lane_index])
 
 
 func _refresh_display(unit: CombatUnit) -> void:
@@ -226,9 +210,9 @@ func _play_attack_animation(attacker: CombatUnit, target: CombatUnit) -> void:
 
 
 func _perform_attack(attacker: CombatUnit) -> void:
-	var target := _lane_opponent(attacker)
-	if target == null or not target.alive:
-		return # lane opponent is dead — idle rather than retarget
+	var target := _current_target(attacker)
+	if target == null:
+		return # attacker's whole team's opponents are wiped; loop is ending
 
 	_fire_trigger(attacker, "ON_ATTACK", {"target": target})
 	if not attacker.alive:

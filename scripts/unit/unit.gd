@@ -1,10 +1,11 @@
 extends Node2D
 class_name Unit
 
-## Base creature/unit scene: a colored placeholder body, a name label
-## above it, and a heart/sword icon pair below showing current HP/Attack
-## (Super Auto Pets style). No real art yet — color is just a
-## per-evolution-line differentiator, and the icons are plain glyphs.
+## Base creature/unit scene: shows creature_data.sprite if one's been set,
+## otherwise falls back to a colored placeholder body (color is just a
+## per-evolution-line differentiator until every creature has real art).
+## A name label sits above, and a heart/sword icon pair below shows
+## current HP/Attack (Super Auto Pets style).
 @export var creature_data: CreatureData
 @export var is_shiny: bool = false
 
@@ -27,6 +28,7 @@ const ATTACK_LUNGE_DISTANCE := 20.0
 const ATTACK_LUNGE_LEG_DURATION := 0.15 # each leg (out, then back)
 
 @onready var body: ColorRect = $Body
+@onready var sprite_rect: TextureRect = $SpriteRect
 @onready var name_label: Label = $NameLabel
 @onready var hp_label: Label = $HPLabel
 @onready var attack_label: Label = $AttackLabel
@@ -35,12 +37,24 @@ var _is_dead := false
 
 
 func _ready() -> void:
-	_apply_color()
+	_apply_visual()
 	_update_name()
 	update_display(_effective_max_hp(), _effective_attack())
 
 
-func _apply_color() -> void:
+## Real art wins when a creature has it; otherwise falls back to the
+## colored placeholder body. Both nodes occupy the same rect, so this
+## just toggles which one is visible.
+func _apply_visual() -> void:
+	if creature_data != null and creature_data.sprite != null:
+		sprite_rect.texture = creature_data.sprite
+		sprite_rect.modulate = SHINY_TINT if is_shiny else Color.WHITE
+		sprite_rect.visible = true
+		body.visible = false
+		return
+
+	sprite_rect.visible = false
+	body.visible = true
 	if creature_data == null:
 		body.color = DEFAULT_COLOR
 		return
@@ -96,6 +110,7 @@ func play_attack_animation(target_global_position: Vector2) -> void:
 func die() -> void:
 	_is_dead = true
 	body.color = DEAD_COLOR
+	sprite_rect.modulate = Color(0.6, 0.6, 0.6)
 	name_label.modulate = Color(0.6, 0.6, 0.6)
 	hp_label.modulate = Color(0.6, 0.6, 0.6)
 	attack_label.modulate = Color(0.6, 0.6, 0.6)
