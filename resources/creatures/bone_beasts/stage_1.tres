@@ -10,7 +10,7 @@
 script = ExtResource("1_script")
 creature_name = "Bone Pup"
 description = "A small skeletal hound that never learned it should have stopped digging. Loyal to whoever last fed it a bone, even after death. When it finally collapses, the last of its strength passes to whoever's fighting beside it."
-max_hp = 10
+max_hp = 7
 attack = 4
 shop_cost = 3
 bone_value = 1
