@@ -62,6 +62,11 @@ var log_lines: Array[String] = []
 
 var player_slots: Array[GraveSlot] = []
 var enemy_slots: Array[GraveSlot] = []
+## Enemy creatures that died this fight, in kill order (includes any
+## summoned mid-fight) — RoundManager reads this after resolve() to award
+## real bones instead of a random guess. Player-side deaths intentionally
+## don't earn bones, matching standard autobattler economy.
+var enemy_deaths: Array[CreatureData] = []
 ## The Battle scene, so a SUMMON effect can instantiate and add a real
 ## visual Unit node, not just internal combat state. Null is tolerated
 ## (summoned units just go visual-less) so this stays testable headless.
@@ -244,6 +249,8 @@ func _kill(target: CombatUnit, killer: CombatUnit) -> void:
 
 	target.alive = false
 	_log("%s has died!" % _name(target))
+	if target.team == GraveSlot.Team.ENEMY:
+		enemy_deaths.append(target.creature_data)
 	if target.slot:
 		target.slot.clear()
 

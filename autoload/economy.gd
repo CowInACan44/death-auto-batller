@@ -1,10 +1,14 @@
 extends Node
 
-## Player's bone currency. Bones are earned when creatures die in combat
-## and spent in the Gravedigger shop. Real per-unit death tracking doesn't
-## exist yet — RoundManager currently simulates deaths as a placeholder.
+## Player's bone currency. Bones are earned when enemy creatures actually
+## die in combat (see CombatResolver.enemy_deaths) and spent in the
+## Gravedigger shop.
 
-const STARTING_BONES := 10
+## Deliberately low: every stage-1/bonus creature costs 3, so this only
+## affords one shop purchase on top of the free StarterPick creature —
+## not a full 4-unit lineup before Night 1 even starts. The rest of the
+## team has to be earned through bones from actual kills across the run.
+const STARTING_BONES := 5
 
 var bones: int = STARTING_BONES
 

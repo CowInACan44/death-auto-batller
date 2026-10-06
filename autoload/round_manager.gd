@@ -32,6 +32,9 @@ var active_lineup: Array[OwnedCreature] = [null, null, null, null]
 var hearts: int = MAX_HEARTS
 
 var _battle: Node = null
+## The CombatResolver from the most recent resolve_combat() call, kept
+## around so end_battle_phase() can read its real enemy_deaths afterward.
+var _last_resolver: CombatResolver = null
 
 
 func register_battle(battle: Node) -> void:
@@ -182,22 +185,23 @@ func resolve_combat() -> CombatResolver.Result:
 		push_warning("RoundManager: no battle scene registered, can't resolve combat")
 		return CombatResolver.Result.DRAW
 
-	var resolver := CombatResolver.new()
-	return await resolver.resolve(_battle.player_grave_slots, _battle.enemy_grave_slots, _battle)
+	_last_resolver = CombatResolver.new()
+	return await _last_resolver.resolve(_battle.player_grave_slots, _battle.enemy_grave_slots, _battle)
 
 
 func end_battle_phase(player_won: bool) -> void:
 	state = GameState.RESULT
 	print("Night %d result — %s" % [round_number, "Player won" if player_won else "Player lost"])
 
-	# No real per-unit death tracking yet — simulate a handful of deaths
-	# and award bones off their bone_value as a placeholder.
-	var deaths := randi_range(1, 4)
+	# Real per-unit death tracking: bones come from enemies your team
+	# actually killed this fight (CombatResolver.enemy_deaths), not a
+	# random guess — a narrow loss where you still killed half their team
+	# now pays out for those kills instead of nothing.
+	var enemy_deaths: Array[CreatureData] = _last_resolver.enemy_deaths if _last_resolver else []
 	var bones_earned := 0
-	for i in deaths:
-		var fallen: CreatureData = CreaturePool.purchasable_creatures.pick_random()
+	for fallen in enemy_deaths:
 		bones_earned += fallen.bone_value
-	print("%d creatures died this round" % deaths)
+	print("%d enemy creatures died this round" % enemy_deaths.size())
 	Economy.award_bones(bones_earned)
 
 	if player_won and round_number == FINAL_NIGHT:
